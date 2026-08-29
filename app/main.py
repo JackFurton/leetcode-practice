@@ -22,6 +22,26 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _pretty_value(v):
+    """Render a raw JSON value (possibly one of runner.py's structure
+    wrapper dicts) as a short, readable string for the test-case list."""
+    if isinstance(v, dict) and set(v.keys()) == {"type", "value"}:
+        return f'{v["type"]}({json.dumps(v["value"])})'
+    return json.dumps(v)
+
+
+def _pretty_args(raw_json: str) -> str:
+    return ", ".join(_pretty_value(a) for a in json.loads(raw_json))
+
+
+def _pretty_expected(raw_json: str) -> str:
+    return _pretty_value(json.loads(raw_json))
+
+
+templates.env.filters["pretty_args"] = _pretty_args
+templates.env.filters["pretty_value"] = _pretty_expected
+
+
 @app.on_event("startup")
 def on_startup():
     init_db()
@@ -152,7 +172,7 @@ def submit_code(
     cases = [
         (json.loads(tc.input_json), json.loads(tc.expected_json)) for tc in test_cases
     ]
-    result = run_submission(code, cases)
+    result = run_submission(code, cases, problem.function_name or "solve")
 
     passed = result["ok"] and all(r.get("passed") for r in result["results"]) and len(cases) > 0
 

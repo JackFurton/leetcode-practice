@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ problem.title }} - LC Trainer{% endblock %}
 {% block content %}
+  {% set fn_name = problem.function_name or "solve" %}
   <section class="problem-header">
     <h1>{{ problem.title }} <span class="badge badge-{{ problem.difficulty|lower }}">{{ problem.difficulty }}</span></h1>
     {% if problem.url %}<p><a href="{{ problem.url }}" target="_blank">{{ problem.url }}</a></p>{% endif %}
     {% if problem.notes %}<p class="notes">{{ problem.notes }}</p>{% endif %}
 
     <form method="post" action="/problems/{{ problem.id }}/status" class="status-form">
-      Status:
+      status:
       <select name="status" onchange="this.form.submit()">
         <option value="todo" {% if problem.status == "todo" %}selected{% endif %}>todo</option>
         <option value="attempted" {% if problem.status == "attempted" %}selected{% endif %}>attempted</option>
@@ -18,17 +19,27 @@
 
   <section class="test-cases">
     <h2>Test Cases</h2>
-    <p class="hint">Your code must define <code>def solve(*args): ...</code>. Input is a JSON list of positional args, expected is the JSON return value. For linked lists / trees, wrap the value: <code>{"type": "linked_list", "value": [1,2,3]}</code> or <code>{"type": "tree", "value": [1,null,2]}</code>, see runner.py for the full list.</p>
-    <ul>
+    <p class="hint">Your code must define <code>def {{ fn_name }}(...): ...</code>. For linked lists / trees, args and expected values get wrapped, e.g. <code>{"type": "linked_list", "value": [1,2,3]}</code>, see runner.py for the full convention.</p>
+    {% if not test_cases %}
+      <p class="empty">No auto-graded cases for this one, see the notes above, verify manually.</p>
+    {% endif %}
+    <div class="tc-grid">
       {% for tc in test_cases %}
-        <li><code>solve(*{{ tc.input_json }}) == {{ tc.expected_json }}</code></li>
+        <div class="tc-card">
+          <div class="tc-num">test {{ "%02d"|format(loop.index) }}</div>
+          <div class="tc-row"><span class="tc-key">in</span><code>{{ fn_name }}({{ tc.input_json | pretty_args }})</code></div>
+          <div class="tc-row"><span class="tc-key">out</span><code>{{ tc.expected_json | pretty_value }}</code></div>
+        </div>
       {% endfor %}
-    </ul>
-    <form method="post" action="/problems/{{ problem.id }}/testcases" class="form-grid">
-      <input name="input_json" placeholder='e.g. [[2,7,11,15], 9]' required>
-      <input name="expected_json" placeholder='e.g. [0,1]' required>
-      <button type="submit">Add test case</button>
-    </form>
+    </div>
+    <details class="add-tc">
+      <summary>+ add test case</summary>
+      <form method="post" action="/problems/{{ problem.id }}/testcases" class="form-grid">
+        <input name="input_json" placeholder='e.g. [[2,7,11,15], 9]' required>
+        <input name="expected_json" placeholder='e.g. [0,1]' required>
+        <button type="submit">Add test case</button>
+      </form>
+    </details>
   </section>
 
   <section class="hint-box">
@@ -38,7 +49,7 @@
       hx-target="#hint"
       hx-swap="innerHTML"
       hx-indicator="#hint-spinner"
-    >Get a hint</button>
+    >get a hint</button>
     <span id="hint-spinner" class="htmx-indicator">thinking...</span>
     <div id="hint"></div>
   </section>
@@ -51,8 +62,8 @@
       hx-swap="innerHTML"
       hx-indicator="#spinner"
     >
-      <textarea name="code" rows="14" required>{{ problem.starter_code or "def solve(*args):\n    pass" }}</textarea>
-      <button type="submit">Run + Review</button>
+      <textarea name="code" rows="14" required spellcheck="false">{{ problem.starter_code or "def solve(*args):\n    # WRITE YOUR BRILLIANT CODE HERE\n    pass" }}</textarea>
+      <button type="submit">run + review</button>
       <span id="spinner" class="htmx-indicator">running...</span>
     </form>
     <div id="result"></div>

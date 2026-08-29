@@ -13,6 +13,7 @@ class Problem(SQLModel, table=True):
     status: str = "todo"  # todo / attempted / solved
     notes: Optional[str] = None
     starter_code: Optional[str] = None
+    function_name: Optional[str] = None  # name the runner calls, defaults to "solve"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # spaced repetition
     last_reviewed_at: Optional[datetime] = None

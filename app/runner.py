@@ -136,13 +136,17 @@ def _normalize_for_compare(value, expected_wrapper):
 '''
 
 HARNESS_FOOTER = '''
+_target = globals().get("__FUNCTION_NAME__")
+if _target is None:
+    raise NameError("Your code must define a function named '__FUNCTION_NAME__'")
+
 _cases = json.loads(__CASES_JSON__)
 _results = []
 for _raw_args, _expected_wrapper in _cases:
     entry = {"input": _raw_args}
     try:
         args = [_convert_arg(a) for a in _raw_args]
-        actual = solve(*args)
+        actual = _target(*args)
         actual_norm, expected_norm = _normalize_for_compare(actual, _expected_wrapper)
         entry["actual"] = actual_norm
         entry["expected"] = expected_norm
@@ -162,14 +166,22 @@ print("__RESULTS_JSON__" + json.dumps(_results))
 '''
 
 
-def run_submission(code: str, test_cases: list[tuple[list, object]]) -> dict:
+def run_submission(
+    code: str, test_cases: list[tuple[list, object]], function_name: str = "solve"
+) -> dict:
     """test_cases: list of (args_list, expected_value). Either may contain
     the structure wrapper dicts described in the module docstring.
+    function_name: the top-level function the harness should call.
 
     Returns {"ok": bool, "results": [...], "error": str | None}
     """
+    if not function_name.isidentifier():
+        raise ValueError(f"Invalid function_name: {function_name!r}")
+
     cases_json = json.dumps(test_cases)
-    footer = HARNESS_FOOTER.replace("__CASES_JSON__", repr(cases_json))
+    footer = HARNESS_FOOTER.replace("__CASES_JSON__", repr(cases_json)).replace(
+        "__FUNCTION_NAME__", function_name
+    )
     script = HARNESS_HEADER + code + "\n" + footer
 
     with tempfile.NamedTemporaryFile(
