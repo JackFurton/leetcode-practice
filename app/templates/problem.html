@@ -62,7 +62,7 @@
       hx-swap="innerHTML"
       hx-indicator="#spinner"
     >
-      <textarea name="code" rows="14" required spellcheck="false">{{ problem.starter_code or "def solve(*args):\n    # WRITE YOUR BRILLIANT CODE HERE\n    pass" }}</textarea>
+      <textarea name="code" rows="24" required spellcheck="false" class="code-editor" data-lang="python">{{ problem.starter_code or "def solve(*args):\n    # WRITE YOUR BRILLIANT CODE HERE\n    pass" }}</textarea>
       <button type="submit">run + review</button>
       <span id="spinner" class="htmx-indicator">running...</span>
     </form>

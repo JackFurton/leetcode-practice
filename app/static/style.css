@@ -1,10 +1,10 @@
 :root {
   color-scheme: dark;
-  --bg: #060a06;
-  --panel: #0a120a;
-  --panel-raised: #0d160d;
-  --border: #1c4d29;
-  --border-dim: #123018;
+  --bg: #000000;
+  --panel: #030602;
+  --panel-raised: #060b05;
+  --border: #164023;
+  --border-dim: #0d2413;
   --text: #c9ffd6;
   --muted: #5c8a67;
   --accent: #00ff66;
@@ -19,8 +19,7 @@
 body {
   background: var(--bg);
   background-image:
-    linear-gradient(180deg, rgba(0,255,102,0.025), transparent 40%),
-    repeating-linear-gradient(180deg, rgba(0,255,102,0.012) 0px, rgba(0,255,102,0.012) 1px, transparent 1px, transparent 3px);
+    repeating-linear-gradient(180deg, rgba(0,255,102,0.008) 0px, rgba(0,255,102,0.008) 1px, transparent 1px, transparent 3px);
   color: var(--text);
   font-family: ui-monospace, "SF Mono", "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace;
   margin: 0;
@@ -109,7 +108,19 @@ input:focus, select:focus, textarea:focus, button:focus {
   box-shadow: 0 0 0 1px var(--accent-dim);
 }
 
-textarea { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+textarea {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  width: 100%;
+  display: block;
+}
+
+.submit-code textarea {
+  min-height: 480px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+  tab-size: 4;
+}
 
 button {
   background: transparent;
