@@ -70,9 +70,29 @@ def on_startup():
         seed_catalog(session)
 
 
+DIFFICULTY_ORDER = {"Easy": 0, "Medium": 1, "Hard": 2}
+STATUS_ORDER = {"todo": 0, "attempted": 1, "solved": 2}
+
+_SORT_KEYS = {
+    "title": lambda p: p.title.lower(),
+    "difficulty": lambda p: DIFFICULTY_ORDER.get(p.difficulty, 99),
+    "topic": lambda p: (p.topic or "").lower(),
+    "status": lambda p: STATUS_ORDER.get(p.status, 99),
+    "created": lambda p: p.created_at,
+}
+
+
 @app.get("/")
-def index(request: Request, session: Session = Depends(get_session)):
-    problems = session.exec(select(Problem).order_by(Problem.created_at.desc())).all()
+def index(
+    request: Request,
+    sort: str = "created",
+    dir: str = "desc",
+    session: Session = Depends(get_session),
+):
+    if sort not in _SORT_KEYS:
+        sort = "created"
+    problems = session.exec(select(Problem)).all()
+    problems.sort(key=_SORT_KEYS[sort], reverse=(dir == "desc"))
 
     now = datetime.utcnow()
     due_for_review = [
@@ -85,7 +105,13 @@ def index(request: Request, session: Session = Depends(get_session)):
 
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "problems": problems, "due_for_review": due_for_review},
+        {
+            "request": request,
+            "problems": problems,
+            "due_for_review": due_for_review,
+            "sort": sort,
+            "dir": dir,
+        },
     )
 
 

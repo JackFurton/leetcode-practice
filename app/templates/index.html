@@ -44,7 +44,14 @@
     {% endif %}
     <table>
       <thead>
-        <tr><th>Title</th><th>Difficulty</th><th>Topic</th><th>Status</th></tr>
+        <tr>
+          {% for col, label in [("title", "Title"), ("difficulty", "Difficulty"), ("topic", "Topic"), ("status", "Status")] %}
+            {% set next_dir = "desc" if sort == col and dir == "asc" else "asc" %}
+            <th>
+              <a href="/?sort={{ col }}&dir={{ next_dir }}">{{ label }}{% if sort == col %}{{ " ^" if dir == "asc" else " v" }}{% endif %}</a>
+            </th>
+          {% endfor %}
+        </tr>
       </thead>
       <tbody>
         {% for p in problems %}
