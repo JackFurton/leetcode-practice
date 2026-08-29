@@ -1,0 +1,13 @@
+<li class="topic-item {{ 'done' if done else '' }}">
+  <label>
+    <input
+      type="checkbox"
+      {% if done %}checked{% endif %}
+      hx-post="/learn/toggle"
+      hx-vals='{"topic": "{{ topic }}"}'
+      hx-target="closest li"
+      hx-swap="outerHTML"
+    >
+    {{ topic }}
+  </label>
+</li>

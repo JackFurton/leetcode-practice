@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Learn - LC Trainer{% endblock %}
+{% block content %}
+  <section class="curriculum">
+    <h2>Topic Checklist</h2>
+    <p class="hint">Pattern track loosely mirroring algo.monster. Check off topics as you get comfortable.</p>
+    {% for category in curriculum %}
+      <div class="category">
+        <h3>{{ category.category }}</h3>
+        <ul class="topic-list">
+          {% for topic in category.topics %}
+            {% set done = done_map.get(topic, false) %}
+            {% include "_topic_item.html" %}
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </section>
+{% endblock %}

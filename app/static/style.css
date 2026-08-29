@@ -23,6 +23,9 @@ body {
 header {
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 .brand {
@@ -31,6 +34,24 @@ header {
   text-decoration: none;
   font-size: 1.1rem;
 }
+
+nav a {
+  color: var(--muted);
+  text-decoration: none;
+  margin-right: 1rem;
+  font-size: 0.9rem;
+}
+nav a:hover { color: var(--text); }
+
+.category { margin-bottom: 1.25rem; }
+.category h3 { font-size: 1rem; color: var(--accent); margin-bottom: 0.4rem; }
+.topic-list { list-style: none; padding: 0; margin: 0; }
+.topic-item { padding: 0.25rem 0; }
+.topic-item.done label { color: var(--muted); text-decoration: line-through; }
+.topic-item input { width: auto; margin-right: 0.5rem; }
+
+.due-review ul { list-style: none; padding: 0; }
+.due-review li { padding: 0.3rem 0; }
 
 main {
   max-width: 900px;

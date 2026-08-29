@@ -1,8 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Problems - LC Trainer{% endblock %}
 {% block content %}
+  {% if due_for_review %}
+  <section class="due-review">
+    <h2>Due for Review</h2>
+    <p class="hint">Solved before, spaced-repetition says it's time to retry these.</p>
+    <ul>
+      {% for p in due_for_review %}
+        <li><a href="/problems/{{ p.id }}">{{ p.title }}</a> <span class="badge badge-{{ p.difficulty|lower }}">{{ p.difficulty }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="fetch-problem">
+    <h2>Fetch from LeetCode</h2>
+    <form method="post" action="/problems/fetch" class="form-grid">
+      <input name="url" placeholder="https://leetcode.com/problems/two-sum/" required>
+      <button type="submit">Fetch + Add</button>
+    </form>
+  </section>
+
   <section class="add-problem">
-    <h2>Add Problem</h2>
+    <h2>Add Problem Manually</h2>
     <form method="post" action="/problems" class="form-grid">
       <input name="title" placeholder="Title (e.g. Two Sum)" required>
       <input name="url" placeholder="Link (algo.monster / leetcode)">

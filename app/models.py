@@ -13,6 +13,9 @@ class Problem(SQLModel, table=True):
     status: str = "todo"  # todo / attempted / solved
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # spaced repetition
+    last_reviewed_at: Optional[datetime] = None
+    review_interval_days: int = 1
 
 
 class TestCase(SQLModel, table=True):
@@ -34,3 +37,9 @@ class Submission(SQLModel, table=True):
     results_json: str
     review: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TopicProgress(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    topic: str = Field(unique=True)
+    done: bool = False
