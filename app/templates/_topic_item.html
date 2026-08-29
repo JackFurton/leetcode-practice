@@ -15,6 +15,9 @@
       <summary>explain</summary>
       <div class="topic-detail">
         <p>{{ topic.explanation }}</p>
+        {% if topic.diagram %}
+          <div class="diagram">{{ topic.diagram | safe }}</div>
+        {% endif %}
         <pre class="code">{{ topic.template }}</pre>
       </div>
     </details>

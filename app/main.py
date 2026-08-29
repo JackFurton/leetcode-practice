@@ -13,7 +13,7 @@ from app.leetcode_client import fetch_problem
 from app.models import Problem, Submission, TestCase, TopicProgress
 from app.runner import run_submission
 from app.seed_catalog import seed_catalog
-from app.claude_client import review_submission, get_hint
+from app.claude_client import review_submission, get_hint, get_solution
 
 MAX_REVIEW_INTERVAL_DAYS = 30
 
@@ -230,6 +230,26 @@ def problem_hint(
     )
     return templates.TemplateResponse(
         "_hint_result.html", {"request": request, "hint": hint_text}
+    )
+
+
+@app.post("/problems/{problem_id}/solution")
+def problem_solution(
+    problem_id: int, request: Request, session: Session = Depends(get_session)
+):
+    problem = session.get(Problem, problem_id)
+    if not problem.cached_solution:
+        problem.cached_solution = get_solution(
+            problem_title=problem.title,
+            problem_notes=problem.notes,
+            difficulty=problem.difficulty,
+            function_name=problem.function_name or "solve",
+            starter_code=problem.starter_code,
+        )
+        session.add(problem)
+        session.commit()
+    return templates.TemplateResponse(
+        "_solution_result.html", {"request": request, "solution": problem.cached_solution}
     )
 
 

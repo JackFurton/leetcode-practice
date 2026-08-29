@@ -7,6 +7,9 @@
     {% for category in curriculum %}
       <div class="category">
         <h3>{{ category.category }}</h3>
+        {% if category.practice %}
+          <p class="practice-list">practice: {% for p in category.practice %}<span class="practice-item">{{ p }}</span>{% if not loop.last %}<span class="practice-sep">, </span>{% endif %}{% endfor %}</p>
+        {% endif %}
         <ul class="topic-list">
           {% for topic in category.topics %}
             {% set done = done_map.get(topic.name, false) %}

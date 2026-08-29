@@ -1,10 +1,97 @@
 """Static topic checklist with pattern explanations, algo.monster-style:
 what the pattern is, when to reach for it, and a bare-bones template.
-Progress per topic is tracked in the TopicProgress table (see models.py)."""
+Progress per topic is tracked in the TopicProgress table (see models.py).
+
+Each category also lists a couple of catalog problems that exercise it
+(`practice`, plain titles, matches Problem.title in seed_catalog.py), and a
+handful of the more visual topics carry a small inline SVG (`diagram`)."""
+
+_TWO_POINTERS_SVG = """<svg viewBox="0 0 320 88" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tp-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="currentColor"/></marker></defs>
+<g font-family="ui-monospace,monospace" font-size="13" fill="currentColor">
+<text x="30" y="14" text-anchor="middle">l</text><text x="280" y="14" text-anchor="middle">r</text>
+</g>
+<g stroke="currentColor" stroke-width="1.5" fill="none">
+<rect x="10" y="22" width="40" height="32"/><rect x="60" y="22" width="40" height="32"/>
+<rect x="110" y="22" width="40" height="32"/><rect x="160" y="22" width="40" height="32"/>
+<rect x="210" y="22" width="40" height="32"/><rect x="260" y="22" width="40" height="32"/>
+</g>
+<g font-family="ui-monospace,monospace" font-size="13" fill="currentColor">
+<text x="30" y="43" text-anchor="middle">2</text><text x="80" y="43" text-anchor="middle">5</text>
+<text x="130" y="43" text-anchor="middle">7</text><text x="180" y="43" text-anchor="middle">11</text>
+<text x="230" y="43" text-anchor="middle">14</text><text x="280" y="43" text-anchor="middle">20</text>
+</g>
+<g stroke="currentColor" stroke-width="1.5">
+<line x1="18" y1="68" x2="42" y2="68" marker-end="url(#tp-arrow)"/>
+<line x1="292" y1="68" x2="268" y2="68" marker-end="url(#tp-arrow)"/>
+</g>
+</svg>"""
+
+_SLIDING_WINDOW_SVG = """<svg viewBox="0 0 320 90" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="sw-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="currentColor"/></marker></defs>
+<g stroke="currentColor" stroke-width="1.5" fill="none">
+<rect x="10" y="22" width="40" height="32"/><rect x="60" y="22" width="40" height="32"/>
+<rect x="110" y="22" width="40" height="32"/><rect x="160" y="22" width="40" height="32"/>
+<rect x="210" y="22" width="40" height="32"/><rect x="260" y="22" width="40" height="32"/>
+</g>
+<rect x="58" y="16" width="154" height="44" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/>
+<g font-family="ui-monospace,monospace" font-size="12" fill="currentColor">
+<text x="135" y="12" text-anchor="middle">window</text>
+</g>
+<g stroke="currentColor" stroke-width="1.5">
+<line x1="225" y1="72" x2="255" y2="72" marker-end="url(#sw-arrow)"/>
+</g>
+<g font-family="ui-monospace,monospace" font-size="12" fill="currentColor">
+<text x="190" y="84" text-anchor="middle">slide</text>
+</g>
+</svg>"""
+
+_BFS_TREE_SVG = """<svg viewBox="0 0 260 130" xmlns="http://www.w3.org/2000/svg">
+<g stroke="currentColor" stroke-width="1.5">
+<line x1="130" y1="20" x2="70" y2="65"/><line x1="130" y1="20" x2="190" y2="65"/>
+<line x1="70" y1="65" x2="40" y2="110"/><line x1="70" y1="65" x2="100" y2="110"/>
+<line x1="190" y1="65" x2="160" y2="110"/><line x1="190" y1="65" x2="220" y2="110"/>
+</g>
+<line x1="0" y1="42" x2="260" y2="42" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+<line x1="0" y1="87" x2="260" y2="87" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+<g stroke="currentColor" stroke-width="1.5" fill="#000">
+<circle cx="130" cy="20" r="13"/><circle cx="70" cy="65" r="13"/><circle cx="190" cy="65" r="13"/>
+<circle cx="40" cy="110" r="13"/><circle cx="100" cy="110" r="13"/><circle cx="160" cy="110" r="13"/><circle cx="220" cy="110" r="13"/>
+</g>
+<g font-family="ui-monospace,monospace" font-size="12" fill="currentColor" text-anchor="middle">
+<text x="130" y="24">1</text><text x="70" y="69">2</text><text x="190" y="69">3</text>
+<text x="40" y="114">4</text><text x="100" y="114">5</text><text x="160" y="114">6</text><text x="220" y="114">7</text>
+</g>
+</svg>"""
+
+_REVERSAL_SVG = """<svg viewBox="0 0 300 90" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="rev-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="currentColor"/></marker></defs>
+<g font-family="ui-monospace,monospace" font-size="11" fill="currentColor"><text x="4" y="16">before</text></g>
+<g stroke="currentColor" stroke-width="1.5" fill="none">
+<rect x="10" y="22" width="36" height="26"/><rect x="70" y="22" width="36" height="26"/>
+<rect x="130" y="22" width="36" height="26"/><rect x="190" y="22" width="36" height="26"/>
+</g>
+<g stroke="currentColor" stroke-width="1.5">
+<line x1="46" y1="35" x2="68" y2="35" marker-end="url(#rev-arrow)"/>
+<line x1="106" y1="35" x2="128" y2="35" marker-end="url(#rev-arrow)"/>
+<line x1="166" y1="35" x2="188" y2="35" marker-end="url(#rev-arrow)"/>
+</g>
+<g font-family="ui-monospace,monospace" font-size="11" fill="currentColor"><text x="4" y="70">after</text></g>
+<g stroke="currentColor" stroke-width="1.5" fill="none">
+<rect x="10" y="60" width="36" height="26"/><rect x="70" y="60" width="36" height="26"/>
+<rect x="130" y="60" width="36" height="26"/><rect x="190" y="60" width="36" height="26"/>
+</g>
+<g stroke="currentColor" stroke-width="1.5">
+<line x1="68" y1="73" x2="46" y2="73" marker-end="url(#rev-arrow)"/>
+<line x1="128" y1="73" x2="106" y2="73" marker-end="url(#rev-arrow)"/>
+<line x1="188" y1="73" x2="166" y2="73" marker-end="url(#rev-arrow)"/>
+</g>
+</svg>"""
 
 CURRICULUM = [
     {
         "category": "Arrays & Hashing",
+        "practice": ["1. Two Sum", "217. Contains Duplicate", "242. Valid Anagram"],
         "topics": [
             {
                 "name": "Arrays basics",
@@ -31,6 +118,7 @@ CURRICULUM = [
     },
     {
         "category": "Two Pointers",
+        "practice": ["125. Valid Palindrome", "167. Two Sum II - Input Array Is Sorted"],
         "topics": [
             {
                 "name": "Two pointers on sorted array",
@@ -38,6 +126,7 @@ CURRICULUM = [
                 "condition worse. Needs sorted (or sortable) input. O(n) instead of the O(n^2) "
                 "brute force pair check.",
                 "template": "l, r = 0, len(arr) - 1\nwhile l < r:\n    s = arr[l] + arr[r]\n    if s == target:\n        return [l, r]\n    elif s < target:\n        l += 1\n    else:\n        r -= 1",
+                "diagram": _TWO_POINTERS_SVG,
             },
             {
                 "name": "Fast/slow pointers",
@@ -49,6 +138,10 @@ CURRICULUM = [
     },
     {
         "category": "Sliding Window",
+        "practice": [
+            "121. Best Time to Buy and Sell Stock",
+            "3. Longest Substring Without Repeating Characters",
+        ],
         "topics": [
             {
                 "name": "Fixed size window",
@@ -63,11 +156,13 @@ CURRICULUM = [
                 "from the left until it's valid again. Right pointer only ever moves forward, "
                 "so total work is O(n) even though it looks nested.",
                 "template": "l = 0\nfor r in range(len(arr)):\n    # expand: include arr[r]\n    while <window invalid>:\n        # shrink: remove arr[l]\n        l += 1\n    best = max(best, r - l + 1)",
+                "diagram": _SLIDING_WINDOW_SVG,
             },
         ],
     },
     {
         "category": "Stack",
+        "practice": ["20. Valid Parentheses"],
         "topics": [
             {
                 "name": "Monotonic stack",
@@ -87,6 +182,7 @@ CURRICULUM = [
     },
     {
         "category": "Binary Search",
+        "practice": ["704. Binary Search", "33. Search in Rotated Sorted Array"],
         "topics": [
             {
                 "name": "Standard binary search",
@@ -105,6 +201,11 @@ CURRICULUM = [
     },
     {
         "category": "Linked List",
+        "practice": [
+            "206. Reverse Linked List",
+            "21. Merge Two Sorted Lists",
+            "141. Linked List Cycle",
+        ],
         "topics": [
             {
                 "name": "Reversal",
@@ -112,6 +213,7 @@ CURRICULUM = [
                 "backward. Track prev/curr/next explicitly, easy to lose a reference if you "
                 "reorder the three lines.",
                 "template": "prev = None\ncurr = head\nwhile curr:\n    nxt = curr.next\n    curr.next = prev\n    prev = curr\n    curr = nxt\nreturn prev",
+                "diagram": _REVERSAL_SVG,
             },
             {
                 "name": "Fast/slow cycle detection",
@@ -129,6 +231,11 @@ CURRICULUM = [
     },
     {
         "category": "Trees",
+        "practice": [
+            "226. Invert Binary Tree",
+            "104. Maximum Depth of Binary Tree",
+            "100. Same Tree",
+        ],
         "topics": [
             {
                 "name": "DFS traversal",
@@ -143,6 +250,7 @@ CURRICULUM = [
                 "explicitly mentions 'level' or you need shortest-path-in-unweighted-tree "
                 "behavior.",
                 "template": "from collections import deque\nq = deque([root])\nwhile q:\n    for _ in range(len(q)):\n        node = q.popleft()\n        if node.left: q.append(node.left)\n        if node.right: q.append(node.right)",
+                "diagram": _BFS_TREE_SVG,
             },
             {
                 "name": "BST properties",
@@ -155,6 +263,7 @@ CURRICULUM = [
     },
     {
         "category": "Heap / Priority Queue",
+        "practice": ["215. Kth Largest Element in an Array"],
         "topics": [
             {
                 "name": "Top-K problems",
@@ -172,6 +281,7 @@ CURRICULUM = [
     },
     {
         "category": "Backtracking",
+        "practice": ["78. Subsets", "39. Combination Sum"],
         "topics": [
             {
                 "name": "Subsets / permutations",
@@ -190,6 +300,7 @@ CURRICULUM = [
     },
     {
         "category": "Graphs",
+        "practice": ["200. Number of Islands", "133. Clone Graph"],
         "topics": [
             {
                 "name": "BFS/DFS on graph",
@@ -216,6 +327,7 @@ CURRICULUM = [
     },
     {
         "category": "Dynamic Programming",
+        "practice": ["70. Climbing Stairs", "198. House Robber", "322. Coin Change"],
         "topics": [
             {
                 "name": "1D DP",
@@ -241,6 +353,7 @@ CURRICULUM = [
     },
     {
         "category": "Greedy",
+        "practice": ["53. Maximum Subarray"],
         "topics": [
             {
                 "name": "Interval scheduling",
@@ -261,6 +374,7 @@ CURRICULUM = [
     },
     {
         "category": "Intervals",
+        "practice": ["56. Merge Intervals"],
         "topics": [
             {
                 "name": "Merge intervals",
@@ -279,6 +393,7 @@ CURRICULUM = [
     },
     {
         "category": "Trie",
+        "practice": ["208. Implement Trie (Prefix Tree)"],
         "topics": [
             {
                 "name": "Prefix tree basics",

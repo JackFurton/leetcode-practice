@@ -24,6 +24,133 @@ def _extract_function_name(starter_code: str) -> str | None:
     m = _TOP_LEVEL_DEF.search(starter_code)
     return m.group(1) if m else None
 
+
+# LeetCode-style constraints, one bullet per problem title, own wording/values.
+CONSTRAINTS_BY_TITLE = {
+    "1. Two Sum": [
+        "2 <= nums.length <= 10^4",
+        "-10^9 <= nums[i] <= 10^9",
+        "-10^9 <= target <= 10^9",
+        "Exactly one valid answer exists",
+    ],
+    "217. Contains Duplicate": [
+        "1 <= nums.length <= 10^5",
+        "-10^9 <= nums[i] <= 10^9",
+    ],
+    "242. Valid Anagram": [
+        "1 <= s.length, t.length <= 5 * 10^4",
+        "s and t consist of lowercase English letters",
+    ],
+    "125. Valid Palindrome": [
+        "1 <= s.length <= 2 * 10^5",
+        "s consists only of printable ASCII characters",
+    ],
+    "167. Two Sum II - Input Array Is Sorted": [
+        "2 <= numbers.length <= 3 * 10^4",
+        "-1000 <= numbers[i] <= 1000",
+        "numbers is sorted in non-decreasing order",
+        "Exactly one valid answer exists",
+    ],
+    "121. Best Time to Buy and Sell Stock": [
+        "1 <= prices.length <= 10^5",
+        "0 <= prices[i] <= 10^4",
+    ],
+    "3. Longest Substring Without Repeating Characters": [
+        "0 <= s.length <= 5 * 10^4",
+        "s consists of English letters, digits, symbols, and spaces",
+    ],
+    "20. Valid Parentheses": [
+        "1 <= s.length <= 10^4",
+        "s consists only of the characters '()[]{}'",
+    ],
+    "704. Binary Search": [
+        "1 <= nums.length <= 10^4",
+        "-10^4 < nums[i], target < 10^4",
+        "nums is sorted ascending with all distinct values",
+    ],
+    "33. Search in Rotated Sorted Array": [
+        "1 <= nums.length <= 5000",
+        "-10^4 <= nums[i] <= 10^4",
+        "All values in nums are unique",
+        "nums was originally sorted ascending, then rotated at an unknown pivot",
+    ],
+    "206. Reverse Linked List": [
+        "Number of nodes: 0 to 5000",
+        "-5000 <= Node.val <= 5000",
+    ],
+    "21. Merge Two Sorted Lists": [
+        "Number of nodes in both lists combined: 0 to 50",
+        "-100 <= Node.val <= 100",
+        "Both list1 and list2 are sorted in non-decreasing order",
+    ],
+    "141. Linked List Cycle": [
+        "Number of nodes: 0 to 10^4",
+        "-10^5 <= Node.val <= 10^5",
+    ],
+    "226. Invert Binary Tree": [
+        "Number of nodes: 0 to 100",
+        "-100 <= Node.val <= 100",
+    ],
+    "104. Maximum Depth of Binary Tree": [
+        "Number of nodes: 0 to 10^4",
+        "-100 <= Node.val <= 100",
+    ],
+    "100. Same Tree": [
+        "Number of nodes in both trees: 0 to 100",
+        "-10^4 <= Node.val <= 10^4",
+    ],
+    "215. Kth Largest Element in an Array": [
+        "1 <= k <= nums.length <= 10^5",
+        "-10^4 <= nums[i] <= 10^4",
+    ],
+    "78. Subsets": [
+        "1 <= nums.length <= 10",
+        "-10 <= nums[i] <= 10",
+        "All elements of nums are unique",
+    ],
+    "39. Combination Sum": [
+        "1 <= candidates.length <= 30",
+        "2 <= candidates[i] <= 40",
+        "All elements of candidates are unique",
+        "1 <= target <= 40",
+    ],
+    "200. Number of Islands": [
+        "1 <= grid.length, grid[i].length <= 300",
+        "grid[i][j] is '0' or '1'",
+    ],
+    "133. Clone Graph": [
+        "Number of nodes: 0 to 100",
+        "1 <= Node.val <= 100",
+        "No repeated edges, no self-loops",
+    ],
+    "70. Climbing Stairs": [
+        "1 <= n <= 45",
+    ],
+    "198. House Robber": [
+        "1 <= nums.length <= 100",
+        "0 <= nums[i] <= 400",
+    ],
+    "322. Coin Change": [
+        "1 <= coins.length <= 12",
+        "1 <= coins[i] <= 2^31 - 1",
+        "0 <= amount <= 10^4",
+    ],
+    "53. Maximum Subarray": [
+        "1 <= nums.length <= 10^5",
+        "-10^4 <= nums[i] <= 10^4",
+    ],
+    "56. Merge Intervals": [
+        "1 <= intervals.length <= 10^4",
+        "intervals[i].length == 2",
+        "0 <= start <= end <= 10^4",
+    ],
+    "208. Implement Trie (Prefix Tree)": [
+        "1 <= word.length, prefix.length <= 2000",
+        "word and prefix consist of lowercase English letters",
+        "At most 3 * 10^4 total calls to insert/search/startsWith",
+    ],
+}
+
 # each entry: (title, url, difficulty, topic, notes, starter_code, test_cases)
 # test_cases: list of (args_list, expected_value)
 CATALOG = [
@@ -425,6 +552,7 @@ def seed_catalog(session: Session) -> None:
             difficulty=difficulty,
             topic=topic,
             notes=notes,
+            constraints="\n".join(CONSTRAINTS_BY_TITLE.get(title, [])) or None,
             starter_code=starter_code,
             function_name=_extract_function_name(starter_code),
         )

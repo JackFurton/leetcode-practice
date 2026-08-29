@@ -12,8 +12,10 @@ class Problem(SQLModel, table=True):
     topic: Optional[str] = None  # e.g. "Two Pointers", "DP"
     status: str = "todo"  # todo / attempted / solved
     notes: Optional[str] = None
+    constraints: Optional[str] = None  # one bullet per line, LeetCode-style
     starter_code: Optional[str] = None
     function_name: Optional[str] = None  # name the runner calls, defaults to "solve"
+    cached_solution: Optional[str] = None  # generated once, reused on repeat "reveal" clicks
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # spaced repetition
     last_reviewed_at: Optional[datetime] = None

@@ -231,6 +231,11 @@ code {
 .topic-row summary:hover { color: var(--accent); }
 .topic-detail { margin-top: 0.5rem; padding-left: 0.5rem; border-left: 2px solid var(--border); }
 .topic-detail p { color: var(--text); font-size: 0.88rem; margin: 0.3rem 0; }
+.diagram { margin: 0.5rem 0; color: var(--accent-dim); }
+.diagram svg { width: 100%; max-width: 320px; display: block; }
+
+.practice-list { color: var(--muted); font-size: 0.78rem; margin: 0 0 0.5rem; }
+.practice-item { color: var(--accent-dim); }
 
 .hint-box button { margin-right: 0.5rem; }
 .hint-result {
@@ -263,3 +268,31 @@ code {
 
 .status-form { margin-top: 0.8rem; color: var(--muted); font-size: 0.88rem; }
 .status-form select { margin-left: 0.4rem; }
+
+.constraints { margin-top: 0.8rem; }
+.constraints-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.2rem;
+}
+.constraints ul { margin: 0.2rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; color: var(--text); }
+.constraints li { margin: 0.15rem 0; }
+
+.reveal-solution { margin-top: 1rem; border-top: 1px dashed var(--border); padding-top: 0.8rem; }
+.reveal-solution summary { cursor: pointer; color: var(--red); font-size: 0.85rem; }
+.reveal-solution summary:hover { color: #ff8890; }
+.reveal-solution > button { margin-top: 0.6rem; }
+button.danger { border-color: var(--red); color: var(--red); }
+button.danger:hover { background: var(--red); color: #020402; box-shadow: 0 0 12px rgba(255,77,94,0.5); }
+
+.solution-result {
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  background: #020402;
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  white-space: pre-wrap;
+  font-size: 0.88rem;
+}

@@ -23,6 +23,15 @@ def _resolve_api_key() -> str:
     )
 
 
+def _extract_text(response) -> str:
+    """response.content can include non-text blocks (e.g. thinking) ahead of
+    the text block, so don't assume content[0] is it."""
+    for block in response.content:
+        if block.type == "text":
+            return block.text
+    return ""
+
+
 _client: anthropic.Anthropic | None = None
 
 
@@ -84,7 +93,7 @@ def review_submission(
         system=REVIEW_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
-    return response.content[0].text
+    return _extract_text(response)
 
 
 HINT_SYSTEM_PROMPT = """You are a coding mentor giving a progressive hint on a LeetCode-style \
@@ -110,4 +119,45 @@ def get_hint(problem_title: str, problem_notes: str | None, difficulty: str) -> 
         system=HINT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
-    return response.content[0].text
+    return _extract_text(response)
+
+
+SOLUTION_SYSTEM_PROMPT = """You are a coding mentor revealing the full solution to a LeetCode-style \
+problem for a learner who chose to see it (they've already been offered hints and chose to peek). \
+Give them something worth reading, not just an answer to copy.
+
+Structure your response exactly like this:
+
+**Approach**: the key insight, 2-4 sentences, in plain language before any code.
+**Solution**:
+```python
+<complete, correct, runnable solution>
+```
+**Complexity**: time and space in Big-O, one line each explaining why.
+**Why this works**: 2-3 sentences on the intuition/invariant that makes the approach correct.
+
+If a function name and signature are given, your solution must define exactly that function \
+with that signature so it can be pasted directly into the code box."""
+
+
+def get_solution(
+    problem_title: str,
+    problem_notes: str | None,
+    difficulty: str,
+    function_name: str,
+    starter_code: str | None,
+) -> str:
+    user_message = f"Problem: {problem_title} ({difficulty})"
+    if problem_notes:
+        user_message += f"\nNotes/description: {problem_notes}"
+    user_message += f"\nRequired function name: {function_name}"
+    if starter_code:
+        user_message += f"\nStarter signature:\n{starter_code}"
+
+    response = get_client().messages.create(
+        model=MODEL,
+        max_tokens=1536,
+        system=SOLUTION_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return _extract_text(response)
