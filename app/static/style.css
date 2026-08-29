@@ -260,7 +260,7 @@ code {
 }
 .tc-num { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }
 .tc-row { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.1rem 0; }
-.tc-key { color: var(--accent-dim); width: 2rem; flex-shrink: 0; }
+.tc-key { color: var(--accent-dim); min-width: 3.6rem; flex-shrink: 0; white-space: nowrap; }
 .tc-row code { background: none; border: none; padding: 0; word-break: break-word; }
 
 .add-tc { margin-top: 0.8rem; }
