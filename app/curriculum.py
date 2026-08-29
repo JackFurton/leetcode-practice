@@ -4,7 +4,33 @@ Progress per topic is tracked in the TopicProgress table (see models.py).
 
 Each category also lists a couple of catalog problems that exercise it
 (`practice`, plain titles, matches Problem.title in seed_catalog.py), and a
-handful of the more visual topics carry a small inline SVG (`diagram`)."""
+handful of the more visual topics carry a small inline SVG (`diagram`) for
+the web UI plus a plain-text equivalent (`diagram_ascii`) for the TUI."""
+
+_TWO_POINTERS_ASCII = """\
+  l                              r
+[ 2] [ 5] [ 7] [11] [14] [20]
+ ->                          <-"""
+
+_SLIDING_WINDOW_ASCII = """\
+[ 2] [ 5] [ 7] [11] [14] [20]
+      \\___ window ___/
+                slide ->"""
+
+_BFS_TREE_ASCII = """\
+          (1)
+        /     \\
+     (2)       (3)
+     /  \\      /  \\
+  (4)  (5)   (6)  (7)
+
+level 1: (1)
+level 2: (2) (3)
+level 3: (4) (5) (6) (7)"""
+
+_REVERSAL_ASCII = """\
+before: (1) -> (2) -> (3) -> (4) -> (5)
+after:  (5) -> (4) -> (3) -> (2) -> (1)"""
 
 _TWO_POINTERS_SVG = """<svg viewBox="0 0 320 88" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="tp-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="currentColor"/></marker></defs>
@@ -127,6 +153,7 @@ CURRICULUM = [
                 "brute force pair check.",
                 "template": "l, r = 0, len(arr) - 1\nwhile l < r:\n    s = arr[l] + arr[r]\n    if s == target:\n        return [l, r]\n    elif s < target:\n        l += 1\n    else:\n        r -= 1",
                 "diagram": _TWO_POINTERS_SVG,
+                "diagram_ascii": _TWO_POINTERS_ASCII,
             },
             {
                 "name": "Fast/slow pointers",
@@ -157,6 +184,7 @@ CURRICULUM = [
                 "so total work is O(n) even though it looks nested.",
                 "template": "l = 0\nfor r in range(len(arr)):\n    # expand: include arr[r]\n    while <window invalid>:\n        # shrink: remove arr[l]\n        l += 1\n    best = max(best, r - l + 1)",
                 "diagram": _SLIDING_WINDOW_SVG,
+                "diagram_ascii": _SLIDING_WINDOW_ASCII,
             },
         ],
     },
@@ -214,6 +242,7 @@ CURRICULUM = [
                 "reorder the three lines.",
                 "template": "prev = None\ncurr = head\nwhile curr:\n    nxt = curr.next\n    curr.next = prev\n    prev = curr\n    curr = nxt\nreturn prev",
                 "diagram": _REVERSAL_SVG,
+                "diagram_ascii": _REVERSAL_ASCII,
             },
             {
                 "name": "Fast/slow cycle detection",
@@ -251,6 +280,7 @@ CURRICULUM = [
                 "behavior.",
                 "template": "from collections import deque\nq = deque([root])\nwhile q:\n    for _ in range(len(q)):\n        node = q.popleft()\n        if node.left: q.append(node.left)\n        if node.right: q.append(node.right)",
                 "diagram": _BFS_TREE_SVG,
+                "diagram_ascii": _BFS_TREE_ASCII,
             },
             {
                 "name": "BST properties",
