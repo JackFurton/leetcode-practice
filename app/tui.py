@@ -10,6 +10,7 @@ to leave INSERT) with a real subset of vim motions and edits.
 import json
 import time
 from datetime import datetime
+from typing import Callable
 
 from rich.style import Style
 from sqlmodel import Session, select
@@ -38,7 +39,7 @@ from app.claude_client import get_hint, get_solution, review_submission
 from app.curriculum import CURRICULUM
 from app.db import engine, init_db
 from app.models import Problem, Submission, TestCase, TopicProgress
-from app.runner import run_submission
+from app.runner import run_submission, is_unedited
 from app.seed_catalog import seed_catalog
 from app.stats import compute_dashboard_stats
 
@@ -111,6 +112,7 @@ Header, Footer {
 Button {
     height: 3;
     min-width: 14;
+    margin: 0 1 1 0;
     border: round $secondary;
 }
 Button.-danger {
@@ -122,8 +124,9 @@ DataTable {
 }
 TextArea {
     border: round $secondary;
-    height: 1fr;
+    height: 20;
     min-height: 10;
+    margin-bottom: 1;
 }
 TextArea:focus {
     border: round $primary;
@@ -131,6 +134,12 @@ TextArea:focus {
 #pd-notes {
     height: 6;
     min-height: 6;
+}
+Select {
+    margin-bottom: 1;
+}
+.nav-selected {
+    border: heavy $primary;
 }
 Input#filter-input {
     border: round $primary;
@@ -164,11 +173,21 @@ class _Chord:
 
 class VimTextArea(TextArea):
     """TextArea with a real (if partial) vim modal layer: NORMAL/INSERT
-    modes, h j k l w b 0 $ g g G i a o O x dd yy p u ctrl+r."""
+    modes, h j k l w b 0 $ g g G i a A I o O x dd yy p u ctrl+r D C, plus
+    auto-indent on Enter while INSERT (matches the current line, +1 level
+    after a line ending in ':').
+
+    `on_exit_nav`, if set, is called when Escape is pressed while already in
+    NORMAL mode (i.e. a second Escape) -- lets an owning screen implement
+    "esc always gets you further out" instead of Escape being a dead end
+    once you're in NORMAL but still focused on this widget."""
+
+    INDENT = "    "
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.mode = "NORMAL"
+        self.on_exit_nav: Callable[[], None] | None = None
         self._yank_buffer = ""
         self._gchord = _Chord()
         self._dchord = _Chord()
@@ -186,7 +205,7 @@ class VimTextArea(TextArea):
     def _sync_border(self) -> None:
         self.border_title = f"-- {self.mode} --"
         self.border_subtitle = (
-            "i:insert a:append o/O:open  |  gg/G 0/$ w/b  |  dd yy p x u ^r"
+            "i/a/A/I/o/O:insert  |  gg/G 0/$ w/b  |  dd yy p x D C u ^r"
             if self.mode == "NORMAL"
             else "esc: back to NORMAL"
         )
@@ -206,12 +225,24 @@ class VimTextArea(TextArea):
         self.action_cursor_line_end()
         self.insert("\n" + self._yank_buffer)
 
+    def _smart_newline(self) -> None:
+        row, col = self.cursor_location
+        current_line = self.get_line(row).plain[:col]
+        leading = current_line[: len(current_line) - len(current_line.lstrip(" \t"))]
+        indent = leading + self.INDENT if current_line.rstrip().endswith(":") else leading
+        self.insert("\n" + indent)
+
     async def _on_key(self, event: Key) -> None:
         if self.mode == "INSERT":
             if event.key == "escape":
                 event.stop()
                 event.prevent_default()
                 self._set_mode("NORMAL")
+                return
+            if event.key == "enter":
+                event.stop()
+                event.prevent_default()
+                self._smart_newline()
                 return
             await super()._on_key(event)
             return
@@ -226,7 +257,9 @@ class VimTextArea(TextArea):
         key = event.key
 
         if key == "escape":
-            return  # already normal
+            if self.on_exit_nav:
+                self.on_exit_nav()
+            return
 
         if key == "g":
             if self._gchord.tap():
@@ -246,9 +279,15 @@ class VimTextArea(TextArea):
         elif key == "a":
             self.action_cursor_right()
             self._set_mode("INSERT")
+        elif key == "A":
+            self.action_cursor_line_end()
+            self._set_mode("INSERT")
+        elif key == "I":
+            self.action_cursor_line_start()
+            self._set_mode("INSERT")
         elif key == "o":
             self.action_cursor_line_end()
-            self.insert("\n")
+            self._smart_newline()
             self._set_mode("INSERT")
         elif key == "O":
             self.action_cursor_line_start()
@@ -273,6 +312,11 @@ class VimTextArea(TextArea):
             self.action_cursor_word_left()
         elif key == "x":
             self.action_delete_right()
+        elif key == "D":
+            self.action_delete_to_end_of_line()
+        elif key == "C":
+            self.action_delete_to_end_of_line()
+            self._set_mode("INSERT")
         elif key == "u":
             self.action_undo()
         elif key == "ctrl+r":
@@ -297,11 +341,13 @@ class DashboardScreen(Screen):
         Binding("G", "scroll_bottom", "bottom", show=False),
         Binding("ctrl+d", "scroll_page(1)", "page down", show=False),
         Binding("ctrl+u", "scroll_page(-1)", "page up", show=False),
+        Binding("c", "continue_problem", "continue"),
     ]
 
     def __init__(self):
         super().__init__()
         self._gchord = _Chord()
+        self._continue_id: int | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -346,9 +392,10 @@ class DashboardScreen(Screen):
         lines.append("")
 
         cp = stats["continue_problem"]
+        self._continue_id = cp.id if cp else None
         lines.append("[b]Continue[/b]")
         if cp:
-            lines.append(f"  -> {esc(cp.title)} [{esc(cp.difficulty)}] ({esc(cp.status)})")
+            lines.append(f"  -> {esc(cp.title)} [{esc(cp.difficulty)}] ({esc(cp.status)})  (press c)")
         else:
             lines.append("  [dim]nothing in progress[/dim]")
         lines.append("")
@@ -367,7 +414,7 @@ class DashboardScreen(Screen):
             lines.append(f"  {c['name']:<22} [{bar}] {c['solved']}/{c['total']}")
 
         lines.append("")
-        lines.append("[dim]p:problems  l:learn  q:quit  j/k gg/G ^d/^u: scroll[/dim]")
+        lines.append("[dim]p:problems  l:learn  c:continue  q:quit  j/k gg/G ^d/^u: scroll[/dim]")
 
         self.query_one("#dash-body", Static).update("\n".join(lines))
 
@@ -376,6 +423,10 @@ class DashboardScreen(Screen):
 
     def action_goto_learn(self) -> None:
         self.app.push_screen(LearnScreen())
+
+    def action_continue_problem(self) -> None:
+        if self._continue_id is not None:
+            self.app.push_screen(ProblemDetailScreen(self._continue_id))
 
 
 # ----------------------------------------------------------------- problems
@@ -509,6 +560,15 @@ class ProblemsScreen(Screen):
 
 
 class ProblemDetailScreen(Screen):
+    """Box-hopping vim navigation: in NORMAL (nothing "entered"), j/k/gg/G
+    move a highlight between the status select / code editor / buttons /
+    notes editor, l or enter "enters" the highlighted box (types into a
+    VimTextArea, opens the Select, presses a Button), h leaves the screen.
+    Once entered a VimTextArea, that box's own NORMAL/INSERT layer takes
+    over (see VimTextArea); Escape from its NORMAL mode calls back into
+    _exit_to_nav to pop back out to box-hopping, so Escape always gets you
+    further out instead of ever being a dead end."""
+
     BINDINGS = [
         Binding("escape", "app.pop_screen", "back"),
     ]
@@ -516,6 +576,9 @@ class ProblemDetailScreen(Screen):
     def __init__(self, problem_id: int):
         super().__init__()
         self.problem_id = problem_id
+        self.nav_index = 0
+        self.entered = False
+        self._gchord = _Chord()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -526,7 +589,10 @@ class ProblemDetailScreen(Screen):
                 id="pd-status",
                 allow_blank=False,
             )
-            yield Static("[b]Code[/b]  (vim-modal: starts in NORMAL, i to insert)")
+            yield Static(
+                "[b]Code[/b]  (j/k to move between boxes, l/enter to enter one, "
+                "esc always backs out)"
+            )
             yield VimTextArea("", id="pd-code", language="python")
             with Horizontal():
                 yield Button("run + review", id="pd-submit")
@@ -540,6 +606,69 @@ class ProblemDetailScreen(Screen):
 
     def on_mount(self) -> None:
         self.load_problem()
+        code_box = self.query_one("#pd-code", VimTextArea)
+        notes_box = self.query_one("#pd-notes", VimTextArea)
+        code_box.on_exit_nav = self._exit_to_nav
+        notes_box.on_exit_nav = self._exit_to_nav
+        self._focusables = [
+            self.query_one("#pd-status", Select),
+            code_box,
+            self.query_one("#pd-submit", Button),
+            self.query_one("#pd-hint", Button),
+            self.query_one("#pd-solution", Button),
+            notes_box,
+            self.query_one("#pd-save-notes", Button),
+        ]
+        self._highlight()
+
+    def _highlight(self) -> None:
+        for i, widget in enumerate(self._focusables):
+            widget.set_class(i == self.nav_index, "nav-selected")
+
+    def _nav(self, delta: int) -> None:
+        self.nav_index = max(0, min(len(self._focusables) - 1, self.nav_index + delta))
+        self._highlight()
+
+    def _enter_current(self) -> None:
+        widget = self._focusables[self.nav_index]
+        widget.focus()
+        if isinstance(widget, VimTextArea):
+            self.entered = True
+        elif isinstance(widget, Button):
+            widget.press()
+        elif isinstance(widget, Select):
+            widget.action_show_overlay()
+
+    def _exit_to_nav(self) -> None:
+        self.entered = False
+        self.set_focus(None)
+        self._highlight()
+
+    def on_key(self, event: Key) -> None:
+        if self.entered:
+            return  # focused VimTextArea owns input, see its own _on_key
+        key = event.key
+        if key == "j":
+            self._nav(1)
+            event.stop()
+        elif key == "k":
+            self._nav(-1)
+            event.stop()
+        elif key == "g":
+            if self._gchord.tap():
+                self.nav_index = 0
+                self._highlight()
+            event.stop()
+        elif key == "G":
+            self.nav_index = len(self._focusables) - 1
+            self._highlight()
+            event.stop()
+        elif key in ("l", "enter"):
+            self._enter_current()
+            event.stop()
+        elif key == "h":
+            self.app.pop_screen()
+            event.stop()
 
     def load_problem(self) -> None:
         with _session() as session:
@@ -651,7 +780,9 @@ class ProblemDetailScreen(Screen):
                     problem.review_interval_days = 1
                 problem.last_reviewed_at = now
                 session.add(problem)
-            elif problem.status == "todo":
+            elif problem.status == "todo" and not is_unedited(
+                code, problem.starter_code, problem.function_name
+            ):
                 problem.status = "attempted"
                 session.add(problem)
 

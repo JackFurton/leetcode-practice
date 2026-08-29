@@ -23,6 +23,19 @@ from pathlib import Path
 
 TIMEOUT_SECONDS = 5
 
+
+def default_starter_code(function_name: str | None) -> str:
+    return f"def {function_name or 'solve'}(*args):\n    pass"
+
+
+def is_unedited(code: str, starter_code: str | None, function_name: str | None) -> bool:
+    """True if `code` is exactly the starter stub with nothing written -- a
+    submission that couldn't possibly do anything, most likely an accidental
+    click rather than a real (if wrong) attempt. Used to avoid flipping a
+    problem's status to 'attempted' on a no-op submission."""
+    baseline = starter_code or default_starter_code(function_name)
+    return code.strip() == baseline.strip()
+
 HARNESS_HEADER = '''
 import json, traceback
 

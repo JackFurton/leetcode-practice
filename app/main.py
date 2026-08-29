@@ -11,7 +11,7 @@ from app.curriculum import CURRICULUM, CATEGORY_BY_TITLE
 from app.db import engine, get_session, init_db
 from app.leetcode_client import fetch_problem
 from app.models import Problem, Submission, TestCase, TopicProgress
-from app.runner import run_submission
+from app.runner import run_submission, is_unedited
 from app.seed_catalog import seed_catalog
 from app.stats import compute_dashboard_stats
 from app.claude_client import review_submission, get_hint, get_solution
@@ -283,7 +283,10 @@ def submit_code(
             problem.review_interval_days = 1
         problem.last_reviewed_at = now
         session.add(problem)
-    elif not passed and problem.status == "todo":
+    elif (
+        problem.status == "todo"
+        and not is_unedited(code, problem.starter_code, problem.function_name)
+    ):
         problem.status = "attempted"
         session.add(problem)
 

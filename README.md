@@ -2,15 +2,14 @@
 
 Practice LeetCode-style problems (paired with algo.monster), submit code, and
 get an automated review from Claude on correctness, complexity, and style.
-Goal: comfortably pass Mediums within a year. Two front ends, same local
-SQLite data underneath: a terminal UI and a web UI.
+Goal: comfortably pass Mediums within a year. A terminal UI, mouse-free,
+vim-driven.
 
 ## Setup
 
 ```bash
 cd leetcode-practice
-./start.sh   # terminal UI (default)
-./web.sh     # web UI, opens Chrome
+./start.sh
 ```
 
 First run creates a venv, installs deps, and copies `.env.example` to `.env`.
@@ -20,8 +19,8 @@ hints, code review, and any solution not already in the pre-baked set below
 (see [Cost](#cost--api-key)); everything else (browsing, the dashboard,
 Learn, running your own test cases) works with no key at all.
 
-Both scripts seed a 27-problem starter catalog on first boot (instant, no
-network call, the data's baked in).
+Seeds a 27-problem starter catalog on first boot (instant, no network call,
+the data's baked in).
 
 ## Cost / API key
 
@@ -38,38 +37,44 @@ code). Reveal Solution on a problem without a pre-baked one (Clone Graph,
 Trie, or anything you add yourself) also calls Claude live and caches the
 result after the first pull.
 
-## Terminal UI
+## Using it
 
 `./start.sh` drops you straight into a Textual-based TUI, no browser, no
 mouse needed:
 
 - **Dashboard**: overall progress, per-difficulty breakdown, streak, per-pattern
-  progress bars, "continue where you left off", due-for-review.
+  progress bars, `c` to jump into "continue where you left off", due-for-review.
 - **Problems** (`p`): sortable list (`t`/`d`/`s` for title/difficulty/status),
   `/` to filter, enter a row to open it.
 - **Problem detail**: description, constraints, examples, a modal vim code
-  editor, run + review, get a hint, reveal a full solution (cached after
-  first pull), personal notes.
+  editor with syntax highlighting, run + review, get a hint, reveal a full
+  solution (cached after first pull), personal notes.
 - **Learn** (`l`): pattern checklist by category, an ASCII diagram on the
   more visual topics, space to toggle done, select a topic to see its
   explanation + template.
 
 Navigation is vim-style everywhere: `h j k l`, `gg`/`G` (top/bottom),
-`ctrl+d`/`ctrl+u` (page down/up), `escape` back a screen, `q` quits from the
-dashboard, `ctrl+p` opens Textual's command palette.
+`ctrl+d`/`ctrl+u` (page down/up), `escape` backs out (see below, always gets
+you further out, never a dead end), `q` quits from the dashboard, `ctrl+p`
+opens Textual's command palette.
+
+### The problem screen is one box-hopping vim buffer
+
+On a problem's detail screen, `j`/`k`/`gg`/`G` move a highlight between the
+status field, the code editor, each button, and the notes editor, exactly
+like moving between vim splits. `l` or `enter` "enters" whatever's
+highlighted: opens the status dropdown, presses a button, or drops you into
+the code/notes editor. `h` leaves the whole screen.
 
 The code and notes editors are modal, same idea as vim: they open in
-**NORMAL** mode (motions only, nothing types), `i`/`a`/`o`/`O` drop into
-**INSERT** mode to actually write code, `esc` back to NORMAL. In NORMAL mode:
+**NORMAL** mode (motions only, nothing types), `i`/`a`/`A`/`I`/`o`/`O` drop
+into **INSERT** mode to actually write, `esc` backs out one level at a time:
+INSERT → that editor's own NORMAL → back to box-hopping. In NORMAL mode:
 `h j k l` move, `w`/`b` word-jump, `0`/`$` line start/end, `gg`/`G` document
-start/end, `x` delete char, `dd` delete line, `yy`/`p` yank/paste line, `u`
-undo, `ctrl+r` redo.
-
-## Web UI
-
-`./web.sh` starts the FastAPI server and opens it in Chrome. Same data, same
-features, plus small inline SVG diagrams on a few Learn topics that don't
-translate to a terminal (the TUI shows an ASCII version of those instead).
+start/end, `x` delete char, `D`/`C` delete/change to end of line, `dd`
+delete line, `yy`/`p` yank/paste line, `u` undo, `ctrl+r` redo. Enter in
+INSERT mode auto-indents: matches the current line, one level deeper after
+a line ending in `:`.
 
 ## How it works
 
@@ -85,7 +90,23 @@ translate to a terminal (the TUI shows an ASCII version of those instead).
    (gated behind an explicit click so you don't spoil it by accident).
 4. Every submission is saved to history so you can track how your solutions
    evolve over time. Solving a problem starts a spaced-repetition timer;
-   it resurfaces on the dashboard when it's due for a retry.
+   it resurfaces on the dashboard when it's due for a retry. A submission
+   only counts as an "attempt" if you actually changed the starter code,
+   an accidental click on unedited code doesn't touch its status.
+5. Notes are per-problem (`Problem.my_notes` in the DB), your own scratch
+   space, separate from the system-authored description.
+
+## Web UI
+
+There's also a FastAPI + HTMX web app (`app/main.py`) with the same data and
+features, plus small inline SVG diagrams on a few Learn topics that don't
+translate to a terminal. No launch script for it anymore (the TUI is the
+primary interface now), run it manually if you want it:
+
+```bash
+source .venv/bin/activate
+uvicorn app.main:app --reload
+```
 
 ## Security note
 
@@ -103,5 +124,5 @@ is the whole setup.
 
 - Multi-language support (Go, Java, C++, Rust, TypeScript, JavaScript) once
   Python habits are solid, each needs its own runner harness and structure
-  wrapper convention
+  wrapper convention. Confirmed direction, not started yet.
 - Per-problem diagrams (auto-generated from test-case data) in the web UI
