@@ -46,9 +46,10 @@ mouse needed:
   progress bars, `c` to jump into "continue where you left off", due-for-review.
 - **Problems** (`p`): sortable list (`t`/`d`/`s` for title/difficulty/status),
   `/` to filter, enter a row to open it.
-- **Problem detail**: description, constraints, examples, a modal vim code
-  editor with syntax highlighting, run + review, get a hint, reveal a full
-  solution (cached after first pull), personal notes.
+- **Problem detail**: description, constraints, examples, a language picker
+  (Python, plus Go on the problems that have it, see below), a modal vim
+  code editor with syntax highlighting, run + review, get a hint, reveal a
+  full solution (cached after first pull), personal notes.
 - **Learn** (`l`): pattern checklist by category, an ASCII diagram on the
   more visual topics, space to toggle done, select a topic to see its
   explanation + template.
@@ -120,9 +121,23 @@ MIT licensed (see `LICENSE`), issues/PRs welcome. Nothing here needs a
 backend or account beyond your own Anthropic key, `git clone` + `./start.sh`
 is the whole setup.
 
+## Multi-language
+
+Go is in (see `app/go_runner.py`): 12 array/string/int/DP/greedy problems so
+far (Two Sum, Contains Duplicate, Valid Anagram, Valid Palindrome, Best Time
+to Buy/Sell Stock, Valid Parentheses, Binary Search, Climbing Stairs, House
+Robber, Coin Change, Maximum Subarray, Merge Intervals), each with real
+starter code, verified test cases, and a verified reference solution. Needs
+the `go` toolchain on your PATH; if it's missing, submitting Go code just
+tells you so instead of crashing. Linked-list/tree problems aren't ported to
+Go yet, that needs its own Go-side struct convention matching the Python
+wrapper approach.
+
+Java, C++, Rust, TypeScript, JavaScript: each needs the same treatment as
+Go (its own runner harness + typed test-case codegen + a slice of the
+catalog ported over), not started yet.
+
 ## Roadmap ideas
 
-- Multi-language support (Go, Java, C++, Rust, TypeScript, JavaScript) once
-  Python habits are solid, each needs its own runner harness and structure
-  wrapper convention. Confirmed direction, not started yet.
 - Per-problem diagrams (auto-generated from test-case data) in the web UI
+- Language support for the web UI too (currently Go is TUI-only)
