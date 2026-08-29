@@ -1,13 +1,22 @@
 <li class="topic-item {{ 'done' if done else '' }}">
-  <label>
-    <input
-      type="checkbox"
-      {% if done %}checked{% endif %}
-      hx-post="/learn/toggle"
-      hx-vals='{"topic": "{{ topic }}"}'
-      hx-target="closest li"
-      hx-swap="outerHTML"
-    >
-    {{ topic }}
-  </label>
+  <div class="topic-row">
+    <label>
+      <input
+        type="checkbox"
+        {% if done %}checked{% endif %}
+        hx-post="/learn/toggle"
+        hx-vals='{"topic": "{{ topic.name }}"}'
+        hx-target="closest li"
+        hx-swap="outerHTML"
+      >
+      {{ topic.name }}
+    </label>
+    <details>
+      <summary>explain</summary>
+      <div class="topic-detail">
+        <p>{{ topic.explanation }}</p>
+        <pre class="code">{{ topic.template }}</pre>
+      </div>
+    </details>
+  </div>
 </li>

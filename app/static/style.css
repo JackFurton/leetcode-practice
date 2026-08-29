@@ -53,6 +53,22 @@ nav a:hover { color: var(--text); }
 .due-review ul { list-style: none; padding: 0; }
 .due-review li { padding: 0.3rem 0; }
 
+.topic-row { display: flex; align-items: baseline; gap: 1rem; }
+.topic-row summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
+.topic-detail { margin-top: 0.5rem; padding-left: 0.5rem; border-left: 2px solid var(--border); }
+.topic-detail p { color: var(--text); font-size: 0.9rem; margin: 0.3rem 0; }
+
+.hint-box button { margin-right: 0.5rem; }
+.hint-result {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: #0c0e12;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+}
+
 main {
   max-width: 900px;
   margin: 0 auto;

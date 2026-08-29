@@ -85,3 +85,29 @@ def review_submission(
         messages=[{"role": "user", "content": user_message}],
     )
     return response.content[0].text
+
+
+HINT_SYSTEM_PROMPT = """You are a coding mentor giving a progressive hint on a LeetCode-style \
+problem, algo.monster style: nudge toward the right pattern without giving away the solution.
+
+Rules:
+- Do not write code. Do not name the exact algorithm if a softer nudge would do.
+- 2-4 sentences max.
+- Point at the key insight or the pattern category (e.g. "this smells like a sliding window") \
+rather than spelling out the steps.
+- If they're clearly stuck on a specific edge case or complexity target, you can be more direct \
+about that one thing, but still don't hand them the approach."""
+
+
+def get_hint(problem_title: str, problem_notes: str | None, difficulty: str) -> str:
+    user_message = f"Problem: {problem_title} ({difficulty})"
+    if problem_notes:
+        user_message += f"\nNotes/description: {problem_notes}"
+
+    response = get_client().messages.create(
+        model=MODEL,
+        max_tokens=256,
+        system=HINT_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return response.content[0].text

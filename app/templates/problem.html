@@ -31,6 +31,18 @@
     </form>
   </section>
 
+  <section class="hint-box">
+    <h2>Stuck?</h2>
+    <button
+      hx-post="/problems/{{ problem.id }}/hint"
+      hx-target="#hint"
+      hx-swap="innerHTML"
+      hx-indicator="#hint-spinner"
+    >Get a hint</button>
+    <span id="hint-spinner" class="htmx-indicator">thinking...</span>
+    <div id="hint"></div>
+  </section>
+
   <section class="submit-code">
     <h2>Submit Code</h2>
     <form

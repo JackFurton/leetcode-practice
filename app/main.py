@@ -8,11 +8,12 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from app.curriculum import CURRICULUM
-from app.db import get_session, init_db
+from app.db import engine, get_session, init_db
 from app.leetcode_client import fetch_problem
 from app.models import Problem, Submission, TestCase, TopicProgress
 from app.runner import run_submission
-from app.claude_client import review_submission
+from app.seed_catalog import seed_catalog
+from app.claude_client import review_submission, get_hint
 
 MAX_REVIEW_INTERVAL_DAYS = 30
 
@@ -24,6 +25,8 @@ templates = Jinja2Templates(directory="app/templates")
 @app.on_event("startup")
 def on_startup():
     init_db()
+    with Session(engine) as session:
+        seed_catalog(session)
 
 
 @app.get("/")
@@ -195,13 +198,28 @@ def submit_code(
     )
 
 
+@app.post("/problems/{problem_id}/hint")
+def problem_hint(
+    problem_id: int, request: Request, session: Session = Depends(get_session)
+):
+    problem = session.get(Problem, problem_id)
+    hint_text = get_hint(
+        problem_title=problem.title,
+        problem_notes=problem.notes,
+        difficulty=problem.difficulty,
+    )
+    return templates.TemplateResponse(
+        "_hint_result.html", {"request": request, "hint": hint_text}
+    )
+
+
 @app.get("/learn")
 def learn(request: Request, session: Session = Depends(get_session)):
     existing = {tp.topic for tp in session.exec(select(TopicProgress)).all()}
     for category in CURRICULUM:
         for topic in category["topics"]:
-            if topic not in existing:
-                session.add(TopicProgress(topic=topic))
+            if topic["name"] not in existing:
+                session.add(TopicProgress(topic=topic["name"]))
     session.commit()
 
     progress = session.exec(select(TopicProgress)).all()
@@ -213,6 +231,14 @@ def learn(request: Request, session: Session = Depends(get_session)):
     )
 
 
+def _find_topic(name: str) -> dict:
+    for category in CURRICULUM:
+        for t in category["topics"]:
+            if t["name"] == name:
+                return t
+    return {"name": name, "explanation": "", "template": ""}
+
+
 @app.post("/learn/toggle")
 def toggle_topic(
     request: Request, topic: str = Form(...), session: Session = Depends(get_session)
@@ -222,5 +248,6 @@ def toggle_topic(
     session.add(tp)
     session.commit()
     return templates.TemplateResponse(
-        "_topic_item.html", {"request": request, "topic": topic, "done": tp.done}
+        "_topic_item.html",
+        {"request": request, "topic": _find_topic(topic), "done": tp.done},
     )
