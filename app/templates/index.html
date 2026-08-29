@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Problems - LC Trainer{% endblock %}
+{% block content %}
+  <section class="add-problem">
+    <h2>Add Problem</h2>
+    <form method="post" action="/problems" class="form-grid">
+      <input name="title" placeholder="Title (e.g. Two Sum)" required>
+      <input name="url" placeholder="Link (algo.monster / leetcode)">
+      <select name="difficulty">
+        <option>Easy</option>
+        <option selected>Medium</option>
+        <option>Hard</option>
+      </select>
+      <input name="topic" placeholder="Topic (e.g. Two Pointers)">
+      <textarea name="notes" placeholder="Notes / problem description"></textarea>
+      <button type="submit">Add</button>
+    </form>
+  </section>
+
+  <section class="problem-list">
+    <h2>Problems</h2>
+    {% if not problems %}
+      <p class="empty">No problems yet, add one above.</p>
+    {% endif %}
+    <table>
+      <thead>
+        <tr><th>Title</th><th>Difficulty</th><th>Topic</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for p in problems %}
+        <tr class="status-{{ p.status }}">
+          <td><a href="/problems/{{ p.id }}">{{ p.title }}</a></td>
+          <td>{{ p.difficulty }}</td>
+          <td>{{ p.topic or "-" }}</td>
+          <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

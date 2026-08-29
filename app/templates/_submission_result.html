@@ -1,0 +1,17 @@
+<div class="submission-result {{ 'passed' if submission.passed else 'failed' }}">
+  <h3>{{ "PASSED" if submission.passed else "FAILED" }}</h3>
+  {% if result.error %}
+    <p class="error">Error: {{ result.error }}</p>
+  {% else %}
+    <ul class="case-results">
+      {% for r in result.results %}
+        <li class="{{ 'pass' if r.passed else 'fail' }}">
+          input={{ r.input }} expected={{ r.expected }} actual={{ r.actual }}
+          {% if r.error %} error={{ r.error }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <h4>Review</h4>
+  <div class="review">{{ submission.review }}</div>
+</div>
