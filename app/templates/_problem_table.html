@@ -1,0 +1,34 @@
+<section class="problem-list" id="problem-table">
+  <h2>Problems</h2>
+  {% if not problems %}
+    <p class="empty">No problems yet, add one above.</p>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        {% for col, label in [("title", "Title"), ("difficulty", "Difficulty"), ("topic", "Topic"), ("status", "Status")] %}
+          {% set next_dir = "desc" if sort == col and dir == "asc" else "asc" %}
+          <th>
+            <a
+              href="/?sort={{ col }}&dir={{ next_dir }}"
+              hx-get="/problems/table?sort={{ col }}&dir={{ next_dir }}"
+              hx-target="#problem-table"
+              hx-swap="outerHTML"
+              hx-push-url="/?sort={{ col }}&dir={{ next_dir }}"
+            >{{ label }}{% if sort == col %}{{ " ^" if dir == "asc" else " v" }}{% endif %}</a>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in problems %}
+      <tr class="status-{{ p.status }}">
+        <td><a href="/problems/{{ p.id }}">{{ p.title }}</a></td>
+        <td>{{ p.difficulty }}</td>
+        <td>{{ p.topic or "-" }}</td>
+        <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>

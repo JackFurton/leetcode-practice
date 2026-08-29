@@ -82,6 +82,28 @@ _SORT_KEYS = {
 }
 
 
+def _sorted_problems(session: Session, sort: str, dir: str):
+    if sort not in _SORT_KEYS:
+        sort = "created"
+    problems = session.exec(select(Problem)).all()
+    problems.sort(key=_SORT_KEYS[sort], reverse=(dir == "desc"))
+    return problems, sort
+
+
+@app.get("/problems/table")
+def problems_table(
+    request: Request,
+    sort: str = "created",
+    dir: str = "desc",
+    session: Session = Depends(get_session),
+):
+    problems, sort = _sorted_problems(session, sort, dir)
+    return templates.TemplateResponse(
+        "_problem_table.html",
+        {"request": request, "problems": problems, "sort": sort, "dir": dir},
+    )
+
+
 @app.get("/")
 def index(
     request: Request,
@@ -89,10 +111,7 @@ def index(
     dir: str = "desc",
     session: Session = Depends(get_session),
 ):
-    if sort not in _SORT_KEYS:
-        sort = "created"
-    problems = session.exec(select(Problem)).all()
-    problems.sort(key=_SORT_KEYS[sort], reverse=(dir == "desc"))
+    problems, sort = _sorted_problems(session, sort, dir)
 
     now = datetime.utcnow()
     due_for_review = [
