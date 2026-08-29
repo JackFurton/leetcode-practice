@@ -138,6 +138,10 @@ TextArea:focus {
 Select {
     margin-bottom: 1;
 }
+#pd-buttons {
+    height: auto;
+    margin-bottom: 1;
+}
 .nav-selected {
     border: heavy $primary;
 }
@@ -594,7 +598,7 @@ class ProblemDetailScreen(Screen):
                 "esc always backs out)"
             )
             yield VimTextArea("", id="pd-code", language="python")
-            with Horizontal():
+            with Horizontal(id="pd-buttons"):
                 yield Button("run + review", id="pd-submit")
                 yield Button("get hint", id="pd-hint")
                 yield Button("reveal solution", id="pd-solution", classes="-danger")
