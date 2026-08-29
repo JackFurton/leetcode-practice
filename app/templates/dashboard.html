@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - LC Trainer{% endblock %}
+{% block content %}
+  <section class="overview">
+    <h2>Progress</h2>
+    <div class="stat-row">
+      <span>{{ solved_count }}/{{ total }} solved</span>
+      <span>{{ pct }}%</span>
+    </div>
+    <div class="bar-track big"><div class="bar-fill" style="width: {{ pct }}%"></div></div>
+    <div class="diff-breakdown">
+      {% for d in diff_stats %}
+        <span class="badge badge-{{ d.label|lower }}">{{ d.label }} {{ d.solved }}/{{ d.total }}</span>
+      {% endfor %}
+    </div>
+    <p class="streak">streak: {{ streak }} day{{ "s" if streak != 1 else "" }}{% if streak == 0 %}, solve something today to start one{% endif %}</p>
+  </section>
+
+  <section class="continue-card">
+    <h2>Continue</h2>
+    {% if continue_problem %}
+      <p>
+        <a href="/problems/{{ continue_problem.id }}">{{ continue_problem.title }}</a>
+        <span class="badge badge-{{ continue_problem.difficulty|lower }}">{{ continue_problem.difficulty }}</span>
+        <span class="badge badge-{{ continue_problem.status }}">{{ continue_problem.status }}</span>
+      </p>
+    {% else %}
+      <p class="empty">Nothing in progress, everything's either solved or not started.</p>
+    {% endif %}
+  </section>
+
+  {% if due_for_review %}
+  <section class="due-review">
+    <h2>Due for Review</h2>
+    <p class="hint">Solved before, spaced-repetition says it's time to retry these.</p>
+    <ul>
+      {% for p in due_for_review %}
+        <li><a href="/problems/{{ p.id }}">{{ p.title }}</a> <span class="badge badge-{{ p.difficulty|lower }}">{{ p.difficulty }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="category-progress">
+    <h2>By Pattern</h2>
+    {% for c in category_progress %}
+      <div class="cat-progress">
+        <div class="cat-progress-label">
+          <span>{{ c.name }}</span>
+          <span class="cat-progress-frac">{{ c.solved }}/{{ c.total }}</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width: {{ (c.solved / c.total * 100) if c.total else 0 }}%"></div></div>
+      </div>
+    {% endfor %}
+  </section>
+{% endblock %}

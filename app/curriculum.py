@@ -412,3 +412,9 @@ CURRICULUM = [
         ],
     },
 ]
+
+# title -> category name, derived from each category's practice list, used
+# for the breadcrumb on problem pages ("Two Pointers > 125. Valid Palindrome").
+CATEGORY_BY_TITLE = {
+    title: category["category"] for category in CURRICULUM for title in category.get("practice", [])
+}

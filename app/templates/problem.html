@@ -2,6 +2,9 @@
 {% block title %}{{ problem.title }} - LC Trainer{% endblock %}
 {% block content %}
   {% set fn_name = problem.function_name or "solve" %}
+  {% if category %}
+    <p class="breadcrumb"><a href="/learn">learn</a> / {{ category }} / {{ problem.title }}</p>
+  {% endif %}
   <section class="problem-header">
     <h1>{{ problem.title }} <span class="badge badge-{{ problem.difficulty|lower }}">{{ problem.difficulty }}</span></h1>
     {% if problem.url %}<p><a href="{{ problem.url }}" target="_blank">{{ problem.url }}</a></p>{% endif %}
@@ -25,6 +28,14 @@
         <option value="attempted" {% if problem.status == "attempted" %}selected{% endif %}>attempted</option>
         <option value="solved" {% if problem.status == "solved" %}selected{% endif %}>solved</option>
       </select>
+    </form>
+  </section>
+
+  <section class="my-notes">
+    <h2>My Notes</h2>
+    <form method="post" action="/problems/{{ problem.id }}/notes" class="form-grid">
+      <textarea name="my_notes" rows="4" placeholder="scratch space, approach ideas, gotchas you hit, whatever's useful to future-you">{{ problem.my_notes or "" }}</textarea>
+      <button type="submit">save notes</button>
     </form>
   </section>
 
@@ -106,4 +117,9 @@
       </details>
     {% endfor %}
   </section>
+
+  <nav class="prevnext">
+    {% if prev_problem %}<a href="/problems/{{ prev_problem.id }}">&lt; {{ prev_problem.title }}</a>{% else %}<span></span>{% endif %}
+    {% if next_problem %}<a href="/problems/{{ next_problem.id }}">{{ next_problem.title }} &gt;</a>{% endif %}
+  </nav>
 {% endblock %}

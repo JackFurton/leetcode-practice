@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from app.curriculum import CURRICULUM
+from app.curriculum import CURRICULUM, CATEGORY_BY_TITLE
 from app.db import engine, get_session, init_db
 from app.leetcode_client import fetch_problem
 from app.models import Problem, Submission, TestCase, TopicProgress
@@ -104,17 +104,9 @@ def problems_table(
     )
 
 
-@app.get("/")
-def index(
-    request: Request,
-    sort: str = "created",
-    dir: str = "desc",
-    session: Session = Depends(get_session),
-):
-    problems, sort = _sorted_problems(session, sort, dir)
-
+def _due_for_review(problems: list[Problem]) -> list[Problem]:
     now = datetime.utcnow()
-    due_for_review = [
+    return [
         p
         for p in problems
         if p.status == "solved"
@@ -122,15 +114,72 @@ def index(
         and now >= p.last_reviewed_at + timedelta(days=p.review_interval_days)
     ]
 
+
+@app.get("/")
+def dashboard(request: Request, session: Session = Depends(get_session)):
+    problems = session.exec(select(Problem)).all()
+    total = len(problems)
+    solved_count = sum(1 for p in problems if p.status == "solved")
+    pct = round(100 * solved_count / total) if total else 0
+
+    diff_stats = []
+    for d in ("Easy", "Medium", "Hard"):
+        d_problems = [p for p in problems if p.difficulty == d]
+        d_solved = sum(1 for p in d_problems if p.status == "solved")
+        diff_stats.append({"label": d, "solved": d_solved, "total": len(d_problems)})
+
+    by_title = {p.title: p for p in problems}
+    category_progress = []
+    for category in CURRICULUM:
+        titles = category.get("practice", [])
+        if not titles:
+            continue
+        matched = [by_title[t] for t in titles if t in by_title]
+        solved = sum(1 for p in matched if p.status == "solved")
+        category_progress.append(
+            {"name": category["category"], "solved": solved, "total": len(titles)}
+        )
+
+    attempted = sorted((p for p in problems if p.status == "attempted"), key=lambda p: p.id)
+    todo = sorted((p for p in problems if p.status == "todo"), key=lambda p: p.id)
+    continue_problem = (attempted or todo or [None])[0]
+
+    submission_days = {
+        s.created_at.date() for s in session.exec(select(Submission)).all()
+    }
+    streak = 0
+    cursor = datetime.utcnow().date()
+    while cursor in submission_days:
+        streak += 1
+        cursor -= timedelta(days=1)
+
     return templates.TemplateResponse(
-        "index.html",
+        "dashboard.html",
         {
             "request": request,
-            "problems": problems,
-            "due_for_review": due_for_review,
-            "sort": sort,
-            "dir": dir,
+            "total": total,
+            "solved_count": solved_count,
+            "pct": pct,
+            "diff_stats": diff_stats,
+            "category_progress": category_progress,
+            "continue_problem": continue_problem,
+            "streak": streak,
+            "due_for_review": _due_for_review(problems),
         },
+    )
+
+
+@app.get("/problems")
+def problems_page(
+    request: Request,
+    sort: str = "created",
+    dir: str = "desc",
+    session: Session = Depends(get_session),
+):
+    problems, sort = _sorted_problems(session, sort, dir)
+    return templates.TemplateResponse(
+        "problems.html",
+        {"request": request, "problems": problems, "sort": sort, "dir": dir},
     )
 
 
@@ -183,6 +232,12 @@ def problem_detail(
         .where(Submission.problem_id == problem_id)
         .order_by(Submission.created_at.desc())
     ).all()
+    prev_problem = session.exec(
+        select(Problem).where(Problem.id < problem_id).order_by(Problem.id.desc()).limit(1)
+    ).first()
+    next_problem = session.exec(
+        select(Problem).where(Problem.id > problem_id).order_by(Problem.id).limit(1)
+    ).first()
     return templates.TemplateResponse(
         "problem.html",
         {
@@ -191,8 +246,22 @@ def problem_detail(
             "test_cases": test_cases,
             "submissions": submissions,
             "structure_hint": _structure_hint(test_cases),
+            "category": CATEGORY_BY_TITLE.get(problem.title),
+            "prev_problem": prev_problem,
+            "next_problem": next_problem,
         },
     )
+
+
+@app.post("/problems/{problem_id}/notes")
+def save_notes(
+    problem_id: int, my_notes: str = Form(""), session: Session = Depends(get_session)
+):
+    problem = session.get(Problem, problem_id)
+    problem.my_notes = my_notes or None
+    session.add(problem)
+    session.commit()
+    return RedirectResponse(f"/problems/{problem_id}", status_code=303)
 
 
 @app.post("/problems/{problem_id}/status")
