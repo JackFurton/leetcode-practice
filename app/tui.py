@@ -145,6 +145,9 @@ Select {
 .nav-selected {
     border: heavy $primary;
 }
+Button.-danger.nav-selected {
+    border: heavy $primary;
+}
 Input#filter-input {
     border: round $primary;
     margin-bottom: 1;
