@@ -18,7 +18,7 @@
 
   <section class="test-cases">
     <h2>Test Cases</h2>
-    <p class="hint">Your code must define <code>def solve(*args): ...</code>. Input is a JSON list of positional args, expected is the JSON return value.</p>
+    <p class="hint">Your code must define <code>def solve(*args): ...</code>. Input is a JSON list of positional args, expected is the JSON return value. For linked lists / trees, wrap the value: <code>{"type": "linked_list", "value": [1,2,3]}</code> or <code>{"type": "tree", "value": [1,null,2]}</code>, see runner.py for the full list.</p>
     <ul>
       {% for tc in test_cases %}
         <li><code>solve(*{{ tc.input_json }}) == {{ tc.expected_json }}</code></li>
@@ -51,7 +51,7 @@
       hx-swap="innerHTML"
       hx-indicator="#spinner"
     >
-      <textarea name="code" rows="14" placeholder="def solve(*args):&#10;    ..." required></textarea>
+      <textarea name="code" rows="14" required>{{ problem.starter_code or "def solve(*args):\n    pass" }}</textarea>
       <button type="submit">Run + Review</button>
       <span id="spinner" class="htmx-indicator">running...</span>
     </form>

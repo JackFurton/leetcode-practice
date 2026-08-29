@@ -12,6 +12,7 @@ class Problem(SQLModel, table=True):
     topic: Optional[str] = None  # e.g. "Two Pointers", "DP"
     status: str = "todo"  # todo / attempted / solved
     notes: Optional[str] = None
+    starter_code: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # spaced repetition
     last_reviewed_at: Optional[datetime] = None
