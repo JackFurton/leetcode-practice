@@ -12,9 +12,166 @@ import re
 
 from sqlmodel import Session, select
 
-from app.models import Problem, TestCase
+from app.models import Problem, ProblemStarter, TestCase
 
 _TOP_LEVEL_DEF = re.compile(r"^def (\w+)\(", re.MULTILINE)
+
+# Go starter code for a first slice of the catalog (array/string/int problems
+# only for now, no linked-list/tree structure-wrapper support in Go yet, see
+# go_runner.py). Each entry: function_name, starter_code, arg_types (Go type
+# per positional arg, in order), return_type.
+GO_STARTERS_BY_TITLE = {
+    "1. Two Sum": (
+        "twoSum",
+        "func twoSum(nums []int, target int) []int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn nil\n"
+        "}",
+        ["[]int", "int"],
+        "[]int",
+    ),
+    "217. Contains Duplicate": (
+        "containsDuplicate",
+        "func containsDuplicate(nums []int) bool {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn false\n"
+        "}",
+        ["[]int"],
+        "bool",
+    ),
+    "242. Valid Anagram": (
+        "validAnagram",
+        "func validAnagram(s string, t string) bool {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn false\n"
+        "}",
+        ["string", "string"],
+        "bool",
+    ),
+    "125. Valid Palindrome": (
+        "validPalindrome",
+        "func validPalindrome(s string) bool {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn false\n"
+        "}",
+        ["string"],
+        "bool",
+    ),
+    "121. Best Time to Buy and Sell Stock": (
+        "maxProfit",
+        "func maxProfit(prices []int) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn 0\n"
+        "}",
+        ["[]int"],
+        "int",
+    ),
+    "20. Valid Parentheses": (
+        "isValid",
+        "func isValid(s string) bool {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn false\n"
+        "}",
+        ["string"],
+        "bool",
+    ),
+    "704. Binary Search": (
+        "binarySearch",
+        "func binarySearch(nums []int, target int) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn -1\n"
+        "}",
+        ["[]int", "int"],
+        "int",
+    ),
+    "70. Climbing Stairs": (
+        "climbStairs",
+        "func climbStairs(n int) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn 0\n"
+        "}",
+        ["int"],
+        "int",
+    ),
+    "198. House Robber": (
+        "rob",
+        "func rob(nums []int) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn 0\n"
+        "}",
+        ["[]int"],
+        "int",
+    ),
+    "322. Coin Change": (
+        "coinChange",
+        "func coinChange(coins []int, amount int) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn -1\n"
+        "}",
+        ["[]int", "int"],
+        "int",
+    ),
+    "53. Maximum Subarray": (
+        "maxSubArray",
+        "func maxSubArray(nums []int) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn 0\n"
+        "}",
+        ["[]int"],
+        "int",
+    ),
+    "56. Merge Intervals": (
+        "merge",
+        "func merge(intervals [][]int) [][]int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn nil\n"
+        "}",
+        ["[][]int"],
+        "[][]int",
+    ),
+}
+
+
+# Pre-baked Go reference solutions, same idea as REFERENCE_SOLUTIONS_BY_TITLE,
+# verified against the real test cases via go_runner before being wired in.
+GO_REFERENCE_SOLUTIONS_BY_TITLE = {
+    '1. Two Sum': (
+        "**Approach**: Track values you've already seen in a hash map as you scan once. For each number, check whether its complement (target - num) was seen already.\n\n**Solution**:\n```go\nfunc twoSum(nums []int, target int) []int {\n\tseen := make(map[int]int)\n\tfor i, n := range nums {\n\t\tif j, ok := seen[target-n]; ok {\n\t\t\treturn []int{j, i}\n\t\t}\n\t\tseen[n] = i\n\t}\n\treturn nil\n}\n```\n\n**Complexity**: Time O(n), space O(n): one pass, O(1) average map lookups.\n\n**Why this works**: The complement check only ever looks at previously-seen indices, so you never reuse the same element twice."
+    ),
+    '217. Contains Duplicate': (
+        '**Approach**: A map tracks values seen so far; the moment a repeat shows up, return true immediately.\n\n**Solution**:\n```go\nfunc containsDuplicate(nums []int) bool {\n\tseen := make(map[int]bool)\n\tfor _, n := range nums {\n\t\tif seen[n] {\n\t\t\treturn true\n\t\t}\n\t\tseen[n] = true\n\t}\n\treturn false\n}\n```\n\n**Complexity**: Time O(n), space O(n).\n\n**Why this works**: Any duplicate must show up as a second occurrence of some value while scanning, so an early-exit linear scan with a seen-set catches it as soon as it happens.'
+    ),
+    '242. Valid Anagram': (
+        "**Approach**: Count character frequencies in s, then subtract t's frequencies. If everything nets to zero and the lengths matched, they're anagrams.\n\n**Solution**:\n```go\nfunc validAnagram(s string, t string) bool {\n\tif len(s) != len(t) {\n\t\treturn false\n\t}\n\tcounts := make(map[rune]int)\n\tfor _, c := range s {\n\t\tcounts[c]++\n\t}\n\tfor _, c := range t {\n\t\tcounts[c]--\n\t}\n\tfor _, v := range counts {\n\t\tif v != 0 {\n\t\t\treturn false\n\t\t}\n\t}\n\treturn true\n}\n```\n\n**Complexity**: Time O(n), space O(charset).\n\n**Why this works**: Two strings are anagrams exactly when every character appears the same number of times in both, which is exactly what the net-zero counts check verifies."
+    ),
+    '125. Valid Palindrome': (
+        '**Approach**: Filter down to just letters/digits (lowercased), then compare that filtered slice to its reverse.\n\n**Solution**:\n```go\nimport "unicode"\n\nfunc validPalindrome(s string) bool {\n\tvar filtered []rune\n\tfor _, c := range s {\n\t\tif unicode.IsLetter(c) || unicode.IsDigit(c) {\n\t\t\tfiltered = append(filtered, unicode.ToLower(c))\n\t\t}\n\t}\n\tfor i, j := 0, len(filtered)-1; i < j; i, j = i+1, j-1 {\n\t\tif filtered[i] != filtered[j] {\n\t\t\treturn false\n\t\t}\n\t}\n\treturn true\n}\n```\n\n**Complexity**: Time O(n), space O(n) for the filtered copy.\n\n**Why this works**: A palindrome reads the same forwards and backwards by definition, filtering first makes punctuation/case irrelevant to that comparison.'
+    ),
+    '121. Best Time to Buy and Sell Stock': (
+        '**Approach**: Track the lowest price seen so far, and at each day check the profit if you sold today.\n\n**Solution**:\n```go\nimport "math"\n\nfunc maxProfit(prices []int) int {\n\tminPrice := math.MaxInt32\n\tbest := 0\n\tfor _, p := range prices {\n\t\tif p < minPrice {\n\t\t\tminPrice = p\n\t\t}\n\t\tif p-minPrice > best {\n\t\t\tbest = p - minPrice\n\t\t}\n\t}\n\treturn best\n}\n```\n\n**Complexity**: Time O(n), space O(1).\n\n**Why this works**: The best sell day for a fixed buy day is irrelevant, what matters is the lowest price seen before today, so a running minimum is enough.'
+    ),
+    '20. Valid Parentheses': (
+        "**Approach**: Push opening brackets, and on a closing bracket check it matches whatever is on top of the stack.\n\n**Solution**:\n```go\nfunc isValid(s string) bool {\n\tpairs := map[rune]rune{')': '(', ']': '[', '}': '{'}\n\tvar stack []rune\n\tfor _, c := range s {\n\t\tif open, ok := pairs[c]; ok {\n\t\t\tif len(stack) == 0 || stack[len(stack)-1] != open {\n\t\t\t\treturn false\n\t\t\t}\n\t\t\tstack = stack[:len(stack)-1]\n\t\t} else {\n\t\t\tstack = append(stack, c)\n\t\t}\n\t}\n\treturn len(stack) == 0\n}\n```\n\n**Complexity**: Time O(n), space O(n) worst case.\n\n**Why this works**: A stack naturally models nesting: the most recently opened bracket must be the next one closed, which is exactly LIFO order."
+    ),
+    '704. Binary Search': (
+        '**Approach**: Classic binary search: halve the search space based on whether the middle is too small or too large.\n\n**Solution**:\n```go\nfunc binarySearch(nums []int, target int) int {\n\tlo, hi := 0, len(nums)-1\n\tfor lo <= hi {\n\t\tmid := (lo + hi) / 2\n\t\tif nums[mid] == target {\n\t\t\treturn mid\n\t\t} else if nums[mid] < target {\n\t\t\tlo = mid + 1\n\t\t} else {\n\t\t\thi = mid - 1\n\t\t}\n\t}\n\treturn -1\n}\n```\n\n**Complexity**: Time O(log n), space O(1).\n\n**Why this works**: Sorted input means everything left of a too-small mid is also too small, so an entire half can be discarded every step.'
+    ),
+    '70. Climbing Stairs': (
+        '**Approach**: The number of ways to reach step n is the ways to reach n-1 plus the ways to reach n-2.\n\n**Solution**:\n```go\nfunc climbStairs(n int) int {\n\tif n <= 2 {\n\t\treturn n\n\t}\n\ta, b := 1, 2\n\tfor i := 3; i <= n; i++ {\n\t\ta, b = b, a+b\n\t}\n\treturn b\n}\n```\n\n**Complexity**: Time O(n), space O(1): Fibonacci with two rolling variables.\n\n**Why this works**: Any way to reach step n arrives via step n-1 or step n-2, and those cases are disjoint and exhaustive, exactly the Fibonacci recurrence.'
+    ),
+    '198. House Robber': (
+        '**Approach**: At each house, decide: skip it (keep previous best) or rob it (best from two houses back plus this house).\n\n**Solution**:\n```go\nfunc rob(nums []int) int {\n\tprev, curr := 0, 0\n\tfor _, n := range nums {\n\t\tprev, curr = curr, max(curr, prev+n)\n\t}\n\treturn curr\n}\n```\n\n**Complexity**: Time O(n), space O(1).\n\n**Why this works**: curr always holds the best total using houses seen so far; the recurrence takes the better of skipping vs robbing the new house.'
+    ),
+    '322. Coin Change': (
+        '**Approach**: Bottom-up DP: dp[a] is the fewest coins to make amount a, built from smaller amounts by trying every coin.\n\n**Solution**:\n```go\nimport "math"\n\nfunc coinChange(coins []int, amount int) int {\n\tdp := make([]int, amount+1)\n\tfor i := 1; i <= amount; i++ {\n\t\tdp[i] = math.MaxInt32\n\t\tfor _, c := range coins {\n\t\t\tif c <= i && dp[i-c] != math.MaxInt32 {\n\t\t\t\tdp[i] = min(dp[i], dp[i-c]+1)\n\t\t\t}\n\t\t}\n\t}\n\tif dp[amount] == math.MaxInt32 {\n\t\treturn -1\n\t}\n\treturn dp[amount]\n}\n```\n\n**Complexity**: Time O(amount * len(coins)), space O(amount).\n\n**Why this works**: Any optimal way to make amount a used some coin c last, leaving amount a-c to make optimally, so dp[a] is the best over all choices of that last coin.'
+    ),
+    '53. Maximum Subarray': (
+        "**Approach**: Kadane's algorithm: extend the current subarray if it's still helping, otherwise restart from the current element.\n\n**Solution**:\n```go\nfunc maxSubArray(nums []int) int {\n\tbest, curr := nums[0], nums[0]\n\tfor _, n := range nums[1:] {\n\t\tcurr = max(n, curr+n)\n\t\tbest = max(best, curr)\n\t}\n\treturn best\n}\n```\n\n**Complexity**: Time O(n), space O(1).\n\n**Why this works**: A negative running sum can only drag down any subarray that includes it, so restarting once curr goes negative is always at least as good."
+    ),
+    '56. Merge Intervals': (
+        '**Approach**: Sort by start time, then walk through merging any interval that overlaps with the last one kept.\n\n**Solution**:\n```go\nimport "sort"\n\nfunc merge(intervals [][]int) [][]int {\n\tsort.Slice(intervals, func(i, j int) bool { return intervals[i][0] < intervals[j][0] })\n\tmerged := [][]int{intervals[0]}\n\tfor _, iv := range intervals[1:] {\n\t\tlast := merged[len(merged)-1]\n\t\tif iv[0] <= last[1] {\n\t\t\tif iv[1] > last[1] {\n\t\t\t\tlast[1] = iv[1]\n\t\t\t}\n\t\t} else {\n\t\t\tmerged = append(merged, iv)\n\t\t}\n\t}\n\treturn merged\n}\n```\n\n**Complexity**: Time O(n log n) for the sort, O(n) for the merge pass.\n\n**Why this works**: Once sorted by start, two intervals can only possibly overlap if they\'re adjacent in that order, so one linear pass catches every merge.'
+    ),
+}
 
 
 def _extract_function_name(starter_code: str) -> str | None:
@@ -649,6 +806,21 @@ def seed_catalog(session: Session) -> None:
                     problem_id=problem.id,
                     input_json=json.dumps(args),
                     expected_json=json.dumps(expected),
+                )
+            )
+
+        go = GO_STARTERS_BY_TITLE.get(title)
+        if go:
+            fn_name, go_code, arg_types, return_type = go
+            session.add(
+                ProblemStarter(
+                    problem_id=problem.id,
+                    language="go",
+                    starter_code=go_code,
+                    function_name=fn_name,
+                    arg_types=json.dumps(arg_types),
+                    return_type=return_type,
+                    cached_solution=GO_REFERENCE_SOLUTIONS_BY_TITLE.get(title),
                 )
             )
     session.commit()

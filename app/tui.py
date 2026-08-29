@@ -38,7 +38,9 @@ from textual.widgets.text_area import TextAreaTheme
 from app.claude_client import get_hint, get_solution, review_submission
 from app.curriculum import CURRICULUM
 from app.db import engine, init_db
-from app.models import Problem, Submission, TestCase, TopicProgress
+from app.go_runner import run_go_submission
+from app.go_runner import is_unedited as go_is_unedited
+from app.models import Problem, ProblemStarter, Submission, TestCase, TopicProgress
 from app.runner import run_submission, is_unedited
 from app.seed_catalog import seed_catalog
 from app.stats import compute_dashboard_stats
@@ -586,6 +588,8 @@ class ProblemDetailScreen(Screen):
         self.nav_index = 0
         self.entered = False
         self._gchord = _Chord()
+        self.current_language = "python"
+        self.starters: dict[str, ProblemStarter] = {}  # non-python languages, by name
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -596,6 +600,7 @@ class ProblemDetailScreen(Screen):
                 id="pd-status",
                 allow_blank=False,
             )
+            yield Select([("python", "python")], id="pd-language", allow_blank=False)
             yield Static(
                 "[b]Code[/b]  (j/k to move between boxes, l/enter to enter one, "
                 "esc always backs out)"
@@ -619,6 +624,7 @@ class ProblemDetailScreen(Screen):
         notes_box.on_exit_nav = self._exit_to_nav
         self._focusables = [
             self.query_one("#pd-status", Select),
+            self.query_one("#pd-language", Select),
             code_box,
             self.query_one("#pd-submit", Button),
             self.query_one("#pd-hint", Button),
@@ -684,6 +690,19 @@ class ProblemDetailScreen(Screen):
             test_cases = session.exec(
                 select(TestCase).where(TestCase.problem_id == self.problem_id)
             ).all()
+            self.starters = {
+                st.language: st
+                for st in session.exec(
+                    select(ProblemStarter).where(ProblemStarter.problem_id == self.problem_id)
+                ).all()
+            }
+
+        self.current_language = "python"
+        lang_select = self.query_one("#pd-language", Select)
+        lang_select.set_options(
+            [("python", "python")] + [(lang, lang) for lang in sorted(self.starters)]
+        )
+        lang_select.value = "python"
 
         lines = [f"[b]{esc(problem.title)}[/b]  [{esc(problem.difficulty)}]"]
         if problem.notes:
@@ -703,20 +722,33 @@ class ProblemDetailScreen(Screen):
         self.query_one("#pd-info", Static).update("\n".join(lines))
 
         self.query_one("#pd-status", Select).value = problem.status
-
-        code_box = self.query_one("#pd-code", VimTextArea)
-        code_box.text = problem.starter_code or f"def {fn_name}(*args):\n    pass"
-
+        self._load_code_for_language()
         self.query_one("#pd-notes", VimTextArea).text = problem.my_notes or ""
 
+    def _load_code_for_language(self) -> None:
+        code_box = self.query_one("#pd-code", VimTextArea)
+        if self.current_language == "python":
+            fn_name = self.problem.function_name or "solve"
+            code_box.language = "python"
+            code_box.text = self.problem.starter_code or f"def {fn_name}(*args):\n    pass"
+        else:
+            starter = self.starters[self.current_language]
+            code_box.language = self.current_language if self.current_language in (
+                "python", "go", "rust", "javascript", "typescript", "java",
+            ) else None
+            code_box.text = starter.starter_code
+
     def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id != "pd-status":
-            return
-        with _session() as session:
-            problem = session.get(Problem, self.problem_id)
-            problem.status = event.value
-            session.add(problem)
-            session.commit()
+        if event.select.id == "pd-status":
+            with _session() as session:
+                problem = session.get(Problem, self.problem_id)
+                problem.status = event.value
+                session.add(problem)
+                session.commit()
+        elif event.select.id == "pd-language":
+            self.current_language = event.value
+            self._load_code_for_language()
+            self.query_one("#pd-result", Static).update("")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "pd-submit":
@@ -750,6 +782,7 @@ class ProblemDetailScreen(Screen):
     @work(thread=True, exclusive=True)
     def do_submit(self) -> None:
         code = self.query_one("#pd-code", VimTextArea).text
+        language = self.current_language
         with _session() as session:
             problem = session.get(Problem, self.problem_id)
             test_cases = session.exec(
@@ -758,7 +791,21 @@ class ProblemDetailScreen(Screen):
             cases = [
                 (json.loads(tc.input_json), json.loads(tc.expected_json)) for tc in test_cases
             ]
-            result = run_submission(code, cases, problem.function_name or "solve")
+
+            if language == "python":
+                result = run_submission(code, cases, problem.function_name or "solve")
+                edited = not is_unedited(code, problem.starter_code, problem.function_name)
+            elif language == "go":
+                starter = self.starters["go"]
+                arg_types = json.loads(starter.arg_types)
+                result = run_go_submission(
+                    code, cases, starter.function_name, arg_types, starter.return_type
+                )
+                edited = not go_is_unedited(code, starter.starter_code)
+            else:
+                result = {"ok": False, "results": [], "error": f"Unsupported language: {language}"}
+                edited = True
+
             passed = result["ok"] and all(r.get("passed") for r in result["results"]) and len(cases) > 0
 
             review_text = review_submission(
@@ -772,6 +819,7 @@ class ProblemDetailScreen(Screen):
             submission = Submission(
                 problem_id=self.problem_id,
                 code=code,
+                language=language,
                 passed=passed,
                 results_json=json.dumps(result),
                 review=review_text,
@@ -787,9 +835,7 @@ class ProblemDetailScreen(Screen):
                     problem.review_interval_days = 1
                 problem.last_reviewed_at = now
                 session.add(problem)
-            elif problem.status == "todo" and not is_unedited(
-                code, problem.starter_code, problem.function_name
-            ):
+            elif problem.status == "todo" and edited:
                 problem.status = "attempted"
                 session.add(problem)
 
@@ -820,19 +866,39 @@ class ProblemDetailScreen(Screen):
 
     @work(thread=True, exclusive=True)
     def do_solution(self) -> None:
+        language = self.current_language
         with _session() as session:
             problem = session.get(Problem, self.problem_id)
-            if not problem.cached_solution:
-                problem.cached_solution = get_solution(
-                    problem.title,
-                    problem.notes,
-                    problem.difficulty,
-                    problem.function_name or "solve",
-                    problem.starter_code,
-                )
-                session.add(problem)
-                session.commit()
-            solution = problem.cached_solution
+            if language == "python":
+                if not problem.cached_solution:
+                    problem.cached_solution = get_solution(
+                        problem.title,
+                        problem.notes,
+                        problem.difficulty,
+                        problem.function_name or "solve",
+                        problem.starter_code,
+                    )
+                    session.add(problem)
+                    session.commit()
+                solution = problem.cached_solution
+            else:
+                starter = session.exec(
+                    select(ProblemStarter).where(
+                        ProblemStarter.problem_id == self.problem_id,
+                        ProblemStarter.language == language,
+                    )
+                ).first()
+                if not starter.cached_solution:
+                    starter.cached_solution = get_solution(
+                        f"{problem.title} (in {language})",
+                        problem.notes,
+                        problem.difficulty,
+                        starter.function_name,
+                        starter.starter_code,
+                    )
+                    session.add(starter)
+                    session.commit()
+                solution = starter.cached_solution
         self.app.call_from_thread(self._show_result, f"[b]solution[/b]\n{esc(solution)}")
 
 

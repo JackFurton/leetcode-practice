@@ -48,3 +48,20 @@ class TopicProgress(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     topic: str = Field(unique=True)
     done: bool = False
+
+
+class ProblemStarter(SQLModel, table=True):
+    """Per-language starter code for a problem, for every language besides
+    Python (which stays on Problem.starter_code/function_name for backward
+    compatibility). Typed languages also need arg/return type info so the
+    runner can render each test case as a correctly-typed literal instead
+    of relying on Python's dynamic *args."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    problem_id: int = Field(foreign_key="problem.id")
+    language: str  # "go", "typescript", ...
+    starter_code: str
+    function_name: str
+    arg_types: str  # JSON list of language-specific type strings, one per positional arg
+    return_type: str
+    cached_solution: Optional[str] = None
