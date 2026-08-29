@@ -41,6 +41,27 @@ def _pretty_expected(raw_json: str) -> str:
 templates.env.filters["pretty_args"] = _pretty_args
 templates.env.filters["pretty_value"] = _pretty_expected
 
+_WRAPPER_EXAMPLES = {
+    "linked_list": '{"type": "linked_list", "value": [1, 2, 3]}',
+    "linked_list_cycle": '{"type": "linked_list_cycle", "value": {"vals": [3, 2, 0], "pos": 1}}',
+    "tree": '{"type": "tree", "value": [1, null, 2]}',
+    "list_of_lists_unordered": "order doesn't matter for this one, any valid arrangement passes",
+}
+
+
+def _structure_hint(test_cases: list[TestCase]) -> str | None:
+    """Only mention the structure-wrapper convention when this problem's
+    test cases actually use one, and show the type it actually uses."""
+    types_present = set()
+    for tc in test_cases:
+        for raw in (tc.input_json, tc.expected_json):
+            data = json.loads(raw)
+            for item in data if isinstance(data, list) else [data]:
+                if isinstance(item, dict) and set(item.keys()) == {"type", "value"}:
+                    types_present.add(item["type"])
+    examples = [_WRAPPER_EXAMPLES[t] for t in sorted(types_present) if t in _WRAPPER_EXAMPLES]
+    return ", ".join(examples) if examples else None
+
 
 @app.on_event("startup")
 def on_startup():
@@ -124,6 +145,7 @@ def problem_detail(
             "problem": problem,
             "test_cases": test_cases,
             "submissions": submissions,
+            "structure_hint": _structure_hint(test_cases),
         },
     )
 

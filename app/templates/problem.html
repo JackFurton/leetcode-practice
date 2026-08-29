@@ -30,7 +30,7 @@
 
   <section class="test-cases">
     <h2>Examples</h2>
-    <p class="hint">Your code must define <code>def {{ fn_name }}(...): ...</code>. For linked lists / trees, args and expected values get wrapped, e.g. <code>{"type": "linked_list", "value": [1,2,3]}</code>, see runner.py for the full convention.</p>
+    <p class="hint">Your code must define <code>def {{ fn_name }}(...): ...</code>{% if structure_hint %}. This one wraps structured values: <code>{{ structure_hint }}</code>{% endif %}</p>
     {% if not test_cases %}
       <p class="empty">No auto-graded cases for this one, see the notes above, verify manually.</p>
     {% endif %}
