@@ -1,9 +1,11 @@
 // Lightweight indentation-aware behavior for the code textarea: Tab/Shift+Tab
 // indent/dedent, Enter continues the current line's indent and adds one more
 // level after a line that opens a block. Rules are keyed by data-lang on the
-// textarea (only "python" for now, add more entries as languages are added).
+// textarea, looked up fresh on every keystroke (not cached at init time) so
+// switching the language picker takes effect without re-binding listeners.
 (function () {
   const INDENT = "    ";
+  const BRACE_LANGS = new Set(["go", "rust", "javascript", "typescript", "java"]);
 
   const RULES = {
     python: {
@@ -13,6 +15,14 @@
       opensBlock: () => false,
     },
   };
+
+  function rulesFor(lang) {
+    if (RULES[lang]) return RULES[lang];
+    if (BRACE_LANGS.has(lang)) {
+      return { opensBlock: (line) => /\{\s*$/.test(line.trimEnd()) };
+    }
+    return RULES.default;
+  }
 
   function currentLineStart(value, pos) {
     return value.lastIndexOf("\n", pos - 1) + 1;
@@ -71,14 +81,20 @@
   }
 
   function init(textarea) {
-    const rules = RULES[textarea.dataset.lang] || RULES.default;
     textarea.addEventListener("keydown", (e) => {
       if (e.key === "Tab") handleTab(e, textarea);
-      else if (e.key === "Enter") handleEnter(e, textarea, rules);
+      else if (e.key === "Enter") handleEnter(e, textarea, rulesFor(textarea.dataset.lang));
     });
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".code-editor").forEach(init);
+  });
+
+  // the language picker swaps the textarea via htmx (a fresh element, so it
+  // needs its own listener bound -- the DOMContentLoaded pass only caught
+  // whatever was there on first render).
+  document.body.addEventListener("htmx:afterSwap", (e) => {
+    e.detail.target.querySelectorAll(".code-editor").forEach(init);
   });
 })();

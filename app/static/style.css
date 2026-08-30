@@ -122,6 +122,9 @@ textarea {
   tab-size: 4;
 }
 
+.language-picker { display: block; margin-bottom: 0.6rem; color: var(--muted); font-size: 0.88rem; }
+.language-picker select { margin-left: 0.4rem; }
+
 button {
   background: transparent;
   color: var(--accent);

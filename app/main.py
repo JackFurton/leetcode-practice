@@ -9,8 +9,10 @@ from sqlmodel import Session, select
 
 from app.curriculum import CURRICULUM, CATEGORY_BY_TITLE
 from app.db import engine, get_session, init_db
+from app.go_runner import run_go_submission
+from app.go_runner import is_unedited as go_is_unedited
 from app.leetcode_client import fetch_problem
-from app.models import Problem, Submission, TestCase, TopicProgress
+from app.models import Problem, ProblemStarter, Submission, TestCase, TopicProgress
 from app.runner import run_submission, is_unedited
 from app.bash_catalog import seed_bash_catalog
 from app.design_catalog import seed_design_catalog
@@ -66,6 +68,50 @@ def _structure_hint(test_cases: list[TestCase]) -> str | None:
                     types_present.add(item["type"])
     examples = [_WRAPPER_EXAMPLES[t] for t in sorted(types_present) if t in _WRAPPER_EXAMPLES]
     return ", ".join(examples) if examples else None
+
+
+_HIGHLIGHT_LANGUAGES = {"python", "go", "rust", "javascript", "typescript", "java"}
+
+
+def _editor_context(problem: Problem, language: str, test_cases: list, session: Session) -> dict:
+    """Context for _code_editor_body.html: starter code + a short signature
+    hint for whichever language is selected. Mirrors the TUI's per-language
+    starter/hint logic (see ProblemDetailScreen._load_code_for_language)."""
+    structure_hint = _structure_hint(test_cases)
+    if language == "python":
+        fn_name = problem.function_name or "solve"
+        return {
+            "language": "python",
+            "code_lang_attr": "python",
+            "signature_code": f"def {fn_name}(...): ...",
+            "starter_code": problem.starter_code
+            or f"def {fn_name}(*args):\n    # WRITE YOUR BRILLIANT CODE HERE\n    pass",
+            "structure_hint": structure_hint,
+        }
+    starter = session.exec(
+        select(ProblemStarter).where(
+            ProblemStarter.problem_id == problem.id, ProblemStarter.language == language
+        )
+    ).first()
+    if starter is None:
+        # requested language has no starter for this problem, fall back rather
+        # than error (shouldn't happen via the UI, the picker only lists
+        # languages that actually have one)
+        return _editor_context(problem, "python", test_cases, session)
+    return {
+        "language": language,
+        "code_lang_attr": language if language in _HIGHLIGHT_LANGUAGES else "",
+        "signature_code": f"{starter.function_name}(...)",
+        "starter_code": starter.starter_code,
+        "structure_hint": structure_hint,
+    }
+
+
+def _available_languages(problem_id: int, session: Session) -> list[str]:
+    others = session.exec(
+        select(ProblemStarter.language).where(ProblemStarter.problem_id == problem_id)
+    ).all()
+    return ["python"] + sorted(set(others))
 
 
 @app.on_event("startup")
@@ -195,11 +241,29 @@ def problem_detail(
             "problem": problem,
             "test_cases": test_cases,
             "submissions": submissions,
-            "structure_hint": _structure_hint(test_cases),
             "category": CATEGORY_BY_TITLE.get(problem.title),
             "prev_problem": prev_problem,
             "next_problem": next_problem,
+            "languages": _available_languages(problem_id, session),
+            **_editor_context(problem, "python", test_cases, session),
         },
+    )
+
+
+@app.get("/problems/{problem_id}/code_editor")
+def problem_code_editor(
+    problem_id: int,
+    request: Request,
+    language: str = "python",
+    session: Session = Depends(get_session),
+):
+    problem = session.get(Problem, problem_id)
+    test_cases = session.exec(
+        select(TestCase).where(TestCase.problem_id == problem_id)
+    ).all()
+    return templates.TemplateResponse(
+        "_code_editor_body.html",
+        {"request": request, **_editor_context(problem, language, test_cases, session)},
     )
 
 
@@ -248,6 +312,7 @@ def submit_code(
     problem_id: int,
     request: Request,
     code: str = Form(...),
+    language: str = Form("python"),
     session: Session = Depends(get_session),
 ):
     problem = session.get(Problem, problem_id)
@@ -258,7 +323,24 @@ def submit_code(
     cases = [
         (json.loads(tc.input_json), json.loads(tc.expected_json)) for tc in test_cases
     ]
-    result = run_submission(code, cases, problem.function_name or "solve")
+
+    if language == "python":
+        result = run_submission(code, cases, problem.function_name or "solve")
+        edited = not is_unedited(code, problem.starter_code, problem.function_name)
+    elif language == "go":
+        starter = session.exec(
+            select(ProblemStarter).where(
+                ProblemStarter.problem_id == problem_id, ProblemStarter.language == "go"
+            )
+        ).first()
+        arg_types = json.loads(starter.arg_types)
+        result = run_go_submission(
+            code, cases, starter.function_name, arg_types, starter.return_type
+        )
+        edited = not go_is_unedited(code, starter.starter_code)
+    else:
+        result = {"ok": False, "results": [], "error": f"Unsupported language: {language}"}
+        edited = True
 
     passed = result["ok"] and all(r.get("passed") for r in result["results"]) and len(cases) > 0
 
@@ -273,6 +355,7 @@ def submit_code(
     submission = Submission(
         problem_id=problem_id,
         code=code,
+        language=language,
         passed=passed,
         results_json=json.dumps(result),
         review=review_text,
@@ -291,10 +374,7 @@ def submit_code(
             problem.review_interval_days = 1
         problem.last_reviewed_at = now
         session.add(problem)
-    elif (
-        problem.status == "todo"
-        and not is_unedited(code, problem.starter_code, problem.function_name)
-    ):
+    elif problem.status == "todo" and edited:
         problem.status = "attempted"
         session.add(problem)
 
@@ -324,21 +404,43 @@ def problem_hint(
 
 @app.post("/problems/{problem_id}/solution")
 def problem_solution(
-    problem_id: int, request: Request, session: Session = Depends(get_session)
+    problem_id: int,
+    request: Request,
+    language: str = Form("python"),
+    session: Session = Depends(get_session),
 ):
     problem = session.get(Problem, problem_id)
-    if not problem.cached_solution:
-        problem.cached_solution = get_solution(
-            problem_title=problem.title,
-            problem_notes=problem.notes,
-            difficulty=problem.difficulty,
-            function_name=problem.function_name or "solve",
-            starter_code=problem.starter_code,
-        )
-        session.add(problem)
-        session.commit()
+    if language == "python":
+        if not problem.cached_solution:
+            problem.cached_solution = get_solution(
+                problem_title=problem.title,
+                problem_notes=problem.notes,
+                difficulty=problem.difficulty,
+                function_name=problem.function_name or "solve",
+                starter_code=problem.starter_code,
+            )
+            session.add(problem)
+            session.commit()
+        solution = problem.cached_solution
+    else:
+        starter = session.exec(
+            select(ProblemStarter).where(
+                ProblemStarter.problem_id == problem_id, ProblemStarter.language == language
+            )
+        ).first()
+        if not starter.cached_solution:
+            starter.cached_solution = get_solution(
+                problem_title=f"{problem.title} (in {language})",
+                problem_notes=problem.notes,
+                difficulty=problem.difficulty,
+                function_name=starter.function_name,
+                starter_code=starter.starter_code,
+            )
+            session.add(starter)
+            session.commit()
+        solution = starter.cached_solution
     return templates.TemplateResponse(
-        "_solution_result.html", {"request": request, "solution": problem.cached_solution}
+        "_solution_result.html", {"request": request, "solution": solution}
     )
 
 

@@ -109,8 +109,11 @@ a line ending in `:`.
 
 There's also a FastAPI + HTMX web app (`app/main.py`) with the same data and
 features, plus small inline SVG diagrams on a few Learn topics that don't
-translate to a terminal. No launch script for it anymore (the TUI is the
-primary interface now), run it manually if you want it:
+translate to a terminal. Problems with a non-Python starter (currently Go)
+get a language picker on the code editor, same starter/submit/hint/reveal
+flow as Python, switching it swaps the editor via a small HTMX partial
+(`_code_editor_body.html`), no page reload. No launch script for it anymore
+(the TUI is the primary interface now), run it manually if you want it:
 
 ```bash
 source .venv/bin/activate
@@ -232,6 +235,6 @@ it can grow one scoped piece at a time instead of all at once:
   [TypeScript](https://github.com/JackFurton/leetcode-practice/issues/9),
   [JavaScript](https://github.com/JackFurton/leetcode-practice/issues/10)
 - Smaller polish: ~~[dashboard box-hopping nav](https://github.com/JackFurton/leetcode-practice/issues/11)~~,
-  ~~[Go linked-list/tree support](https://github.com/JackFurton/leetcode-practice/issues/12)~~ (both shipped),
-  [web UI language parity](https://github.com/JackFurton/leetcode-practice/issues/13),
+  ~~[Go linked-list/tree support](https://github.com/JackFurton/leetcode-practice/issues/12)~~,
+  ~~[web UI language parity](https://github.com/JackFurton/leetcode-practice/issues/13)~~ (all shipped),
   [web UI per-problem diagrams](https://github.com/JackFurton/leetcode-practice/issues/14)
