@@ -134,15 +134,23 @@ is the whole setup.
 
 ## Multi-language
 
-Go is in (see `app/go_runner.py`): 12 array/string/int/DP/greedy problems so
-far (Two Sum, Contains Duplicate, Valid Anagram, Valid Palindrome, Best Time
-to Buy/Sell Stock, Valid Parentheses, Binary Search, Climbing Stairs, House
-Robber, Coin Change, Maximum Subarray, Merge Intervals), each with real
-starter code, verified test cases, and a verified reference solution. Needs
-the `go` toolchain on your PATH; if it's missing, submitting Go code just
-tells you so instead of crashing. Linked-list/tree problems aren't ported to
-Go yet, that needs its own Go-side struct convention matching the Python
-wrapper approach.
+Go is in (see `app/go_runner.py`): 18 problems, 12 array/string/int/DP/greedy
+(Two Sum, Contains Duplicate, Valid Anagram, Valid Palindrome, Best Time to
+Buy/Sell Stock, Valid Parentheses, Binary Search, Climbing Stairs, House
+Robber, Coin Change, Maximum Subarray, Merge Intervals) plus 6 linked-list/
+tree problems (Reverse Linked List, Merge Two Sorted Lists, Linked List
+Cycle, Invert Binary Tree, Maximum Depth of Binary Tree, Same Tree), each
+with real starter code, verified test cases, and a verified reference
+solution. Needs the `go` toolchain on your PATH; if it's missing, submitting
+Go code just tells you so instead of crashing.
+
+The linked-list/tree problems use the same `{"type": "linked_list", "value":
+[...]}` / `{"type": "tree", "value": [...]}` wrapper convention as Python
+(see `runner.py`'s docstring), since they share the exact same `TestCase`
+rows: `go_runner.py` builds real `ListNode`/`TreeNode` Go structs from the
+wrapper at generation time (`buildLinkedList`, `buildLinkedListCycle`,
+`buildTree`) instead of rendering a literal, and serializes the result back
+(`linkedListToValue`, `treeToValue`) to diff against the expected value.
 
 Java, C++, Rust, TypeScript, JavaScript: each needs the same treatment as
 Go (its own runner harness + typed test-case codegen + a slice of the
@@ -223,7 +231,7 @@ it can grow one scoped piece at a time instead of all at once:
   [Rust](https://github.com/JackFurton/leetcode-practice/issues/8),
   [TypeScript](https://github.com/JackFurton/leetcode-practice/issues/9),
   [JavaScript](https://github.com/JackFurton/leetcode-practice/issues/10)
-- Smaller polish: [dashboard box-hopping nav](https://github.com/JackFurton/leetcode-practice/issues/11),
-  [Go linked-list/tree support](https://github.com/JackFurton/leetcode-practice/issues/12),
+- Smaller polish: ~~[dashboard box-hopping nav](https://github.com/JackFurton/leetcode-practice/issues/11)~~,
+  ~~[Go linked-list/tree support](https://github.com/JackFurton/leetcode-practice/issues/12)~~ (both shipped),
   [web UI language parity](https://github.com/JackFurton/leetcode-practice/issues/13),
   [web UI per-problem diagrams](https://github.com/JackFurton/leetcode-practice/issues/14)

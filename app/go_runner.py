@@ -7,9 +7,18 @@ json.loads the test cases and splat them in at runtime -- each problem needs
 to declare its argument/return types (ProblemStarter.arg_types/return_type),
 and the harness renders every test case as an actual typed Go literal at
 generation time (e.g. JSON [2, 7, 11, 15] + type "[]int" -> the Go source
-text "[]int{2, 7, 11, 15}"). No structure-wrapper (linked list / tree)
-support yet, only primitive/slice types -- see runner.py's docstring for
-the wrapper convention those will eventually need to match.
+text "[]int{2, 7, 11, 15}").
+
+Three special type strings trigger structure construction instead of literal
+rendering, matching runner.py's wrapper convention (the test-case JSON is
+the *same* wrapper dicts runner.py already documents, since these problems
+share their TestCase rows with the Python harness):
+  "linked_list"       {"type": "linked_list", "value": [1, 2, 3]}
+  "linked_list_cycle" {"type": "linked_list_cycle", "value": {"vals": [...], "pos": N}}
+  "tree"               {"type": "tree", "value": [4, 2, 7, None, ...]}  # null = gap
+A ListNode/TreeNode struct pair plus build/serialize helpers are always
+injected into the generated program (unused top-level funcs don't error in
+Go, so it's simplest to include them unconditionally).
 """
 import json
 import shutil
@@ -18,6 +27,112 @@ import tempfile
 from pathlib import Path
 
 TIMEOUT_SECONDS = 20  # go run compiles + runs; a bit more headroom than Python
+
+STRUCT_HELPERS = '''
+type ListNode struct {
+	Val  int
+	Next *ListNode
+}
+
+func intPtr(v int) *int { return &v }
+
+func buildLinkedList(vals []int) *ListNode {
+	dummy := &ListNode{}
+	cur := dummy
+	for _, v := range vals {
+		cur.Next = &ListNode{Val: v}
+		cur = cur.Next
+	}
+	return dummy.Next
+}
+
+func buildLinkedListCycle(vals []int, pos int) *ListNode {
+	nodes := make([]*ListNode, len(vals))
+	for i, v := range vals {
+		nodes[i] = &ListNode{Val: v}
+	}
+	for i := 0; i < len(nodes)-1; i++ {
+		nodes[i].Next = nodes[i+1]
+	}
+	if pos >= 0 && len(nodes) > 0 {
+		nodes[len(nodes)-1].Next = nodes[pos]
+	}
+	if len(nodes) == 0 {
+		return nil
+	}
+	return nodes[0]
+}
+
+func linkedListToValue(node *ListNode) []int {
+	out := []int{}
+	seen := map[*ListNode]bool{}
+	for node != nil && !seen[node] {
+		seen[node] = true
+		out = append(out, node.Val)
+		node = node.Next
+	}
+	return out
+}
+
+type TreeNode struct {
+	Val   int
+	Left  *TreeNode
+	Right *TreeNode
+}
+
+func buildTree(vals []*int) *TreeNode {
+	if len(vals) == 0 || vals[0] == nil {
+		return nil
+	}
+	root := &TreeNode{Val: *vals[0]}
+	queue := []*TreeNode{root}
+	i := 1
+	for len(queue) > 0 && i < len(vals) {
+		node := queue[0]
+		queue = queue[1:]
+		if i < len(vals) {
+			if vals[i] != nil {
+				node.Left = &TreeNode{Val: *vals[i]}
+				queue = append(queue, node.Left)
+			}
+			i++
+		}
+		if i < len(vals) {
+			if vals[i] != nil {
+				node.Right = &TreeNode{Val: *vals[i]}
+				queue = append(queue, node.Right)
+			}
+			i++
+		}
+	}
+	return root
+}
+
+func treeToValue(root *TreeNode) []*int {
+	out := []*int{}
+	if root == nil {
+		return out
+	}
+	queue := []*TreeNode{root}
+	for len(queue) > 0 {
+		node := queue[0]
+		queue = queue[1:]
+		if node != nil {
+			out = append(out, intPtr(node.Val))
+			queue = append(queue, node.Left)
+			queue = append(queue, node.Right)
+		} else {
+			out = append(out, nil)
+		}
+	}
+	for len(out) > 0 && out[len(out)-1] == nil {
+		out = out[:len(out)-1]
+	}
+	return out
+}
+'''
+
+STRUCTURE_TYPES = {"linked_list", "linked_list_cycle", "tree"}
 
 
 def go_default_starter_code(function_name: str) -> str:
@@ -42,6 +157,26 @@ def _go_literal(value, go_type: str) -> str:
     raise ValueError(f"unsupported Go type for literal rendering: {go_type!r}")
 
 
+def _go_tree_literal(value) -> str:
+    items = ["nil" if v is None else f"intPtr({v})" for v in value]
+    return "[]*int{" + ", ".join(items) + "}"
+
+
+def _render_arg(raw_value, go_type: str) -> str:
+    """raw_value is a test-case arg, either a plain JSON value or one of the
+    structure-wrapper dicts described in the module docstring, depending on
+    go_type. Returns a Go expression to embed in the generated program."""
+    if go_type == "linked_list":
+        return f"buildLinkedList({_go_literal(raw_value['value'], '[]int')})"
+    if go_type == "linked_list_cycle":
+        vals = _go_literal(raw_value["value"]["vals"], "[]int")
+        pos = _go_literal(raw_value["value"]["pos"], "int")
+        return f"buildLinkedListCycle({vals}, {pos})"
+    if go_type == "tree":
+        return f"buildTree({_go_tree_literal(raw_value['value'])})"
+    return _go_literal(raw_value, go_type)
+
+
 def run_go_submission(
     code: str,
     test_cases: list[tuple[list, object]],
@@ -50,7 +185,9 @@ def run_go_submission(
     return_type: str,
 ) -> dict:
     """test_cases: list of (args_list, expected_value), same shape as
-    runner.run_submission. Returns {"ok": bool, "results": [...], "error": str | None}."""
+    runner.run_submission -- either may contain the structure-wrapper dicts
+    described in the module docstring. Returns
+    {"ok": bool, "results": [...], "error": str | None}."""
     if not shutil.which("go"):
         return {
             "ok": False,
@@ -65,13 +202,29 @@ def run_go_submission(
     blocks = []
     for args, expected in test_cases:
         try:
-            arg_literals = ", ".join(_go_literal(a, t) for a, t in zip(args, arg_types))
-            expected_literal = _go_literal(expected, return_type)
-        except (ValueError, TypeError) as e:
+            arg_literals = ", ".join(
+                _render_arg(a, t) for a, t in zip(args, arg_types)
+            )
+            if return_type == "linked_list":
+                expected_literal = _go_literal(expected["value"], "[]int")
+                convert = "linkedListToValue"
+            elif return_type == "tree":
+                expected_literal = _go_tree_literal(expected["value"])
+                convert = "treeToValue"
+            else:
+                expected_literal = _go_literal(expected, return_type)
+                convert = None
+        except (ValueError, TypeError, KeyError) as e:
             return {"ok": False, "results": [], "error": f"Bad test case data: {e}"}
+
+        if convert:
+            actual_expr = f"{convert}({function_name}({arg_literals}))"
+        else:
+            actual_expr = f"{function_name}({arg_literals})"
+
         blocks.append(
             "\t{\n"
-            f"\t\tactual := {function_name}({arg_literals})\n"
+            f"\t\tactual := {actual_expr}\n"
             f"\t\texpected := {expected_literal}\n"
             "\t\tresults = append(results, __result{"
             "Expected: expected, Actual: actual, Passed: reflect.DeepEqual(actual, expected)"
@@ -82,6 +235,7 @@ def run_go_submission(
     script = (
         "package main\n\n"
         'import (\n\t"encoding/json"\n\t"fmt"\n\t"reflect"\n)\n\n'
+        f"{STRUCT_HELPERS}\n"
         f"{code}\n\n"
         "type __result struct {\n"
         '\tExpected interface{} `json:"expected"`\n'

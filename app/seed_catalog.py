@@ -129,6 +129,62 @@ GO_STARTERS_BY_TITLE = {
         ["[][]int"],
         "[][]int",
     ),
+    # linked-list/tree problems, using go_runner's ListNode/TreeNode structure
+    # wrappers (see go_runner.py's STRUCTURE_TYPES) instead of literal args.
+    "206. Reverse Linked List": (
+        "reverseList",
+        "func reverseList(head *ListNode) *ListNode {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn nil\n"
+        "}",
+        ["linked_list"],
+        "linked_list",
+    ),
+    "21. Merge Two Sorted Lists": (
+        "mergeTwoLists",
+        "func mergeTwoLists(list1 *ListNode, list2 *ListNode) *ListNode {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn nil\n"
+        "}",
+        ["linked_list", "linked_list"],
+        "linked_list",
+    ),
+    "141. Linked List Cycle": (
+        "hasCycle",
+        "func hasCycle(head *ListNode) bool {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn false\n"
+        "}",
+        ["linked_list_cycle"],
+        "bool",
+    ),
+    "226. Invert Binary Tree": (
+        "invertTree",
+        "func invertTree(root *TreeNode) *TreeNode {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn nil\n"
+        "}",
+        ["tree"],
+        "tree",
+    ),
+    "104. Maximum Depth of Binary Tree": (
+        "maxDepth",
+        "func maxDepth(root *TreeNode) int {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn 0\n"
+        "}",
+        ["tree"],
+        "int",
+    ),
+    "100. Same Tree": (
+        "isSameTree",
+        "func isSameTree(p *TreeNode, q *TreeNode) bool {\n"
+        "\t// WRITE YOUR BRILLIANT CODE HERE\n"
+        "\treturn false\n"
+        "}",
+        ["tree", "tree"],
+        "bool",
+    ),
 }
 
 
@@ -170,6 +226,24 @@ GO_REFERENCE_SOLUTIONS_BY_TITLE = {
     ),
     '56. Merge Intervals': (
         '**Approach**: Sort by start time, then walk through merging any interval that overlaps with the last one kept.\n\n**Solution**:\n```go\nimport "sort"\n\nfunc merge(intervals [][]int) [][]int {\n\tsort.Slice(intervals, func(i, j int) bool { return intervals[i][0] < intervals[j][0] })\n\tmerged := [][]int{intervals[0]}\n\tfor _, iv := range intervals[1:] {\n\t\tlast := merged[len(merged)-1]\n\t\tif iv[0] <= last[1] {\n\t\t\tif iv[1] > last[1] {\n\t\t\t\tlast[1] = iv[1]\n\t\t\t}\n\t\t} else {\n\t\t\tmerged = append(merged, iv)\n\t\t}\n\t}\n\treturn merged\n}\n```\n\n**Complexity**: Time O(n log n) for the sort, O(n) for the merge pass.\n\n**Why this works**: Once sorted by start, two intervals can only possibly overlap if they\'re adjacent in that order, so one linear pass catches every merge.'
+    ),
+    '206. Reverse Linked List': (
+        "**Approach**: Walk the list once, at each node flip its Next pointer to point back at the previous node instead of forward.\n\n**Solution**:\n```go\nfunc reverseList(head *ListNode) *ListNode {\n\tvar prev *ListNode\n\tfor head != nil {\n\t\tnext := head.Next\n\t\thead.Next = prev\n\t\tprev = head\n\t\thead = next\n\t}\n\treturn prev\n}\n```\n\n**Complexity**: Time O(n), space O(1): one pass, no extra structure.\n\n**Why this works**: prev always holds the correctly-reversed list built so far; by the time head reaches nil, every node's Next has been flipped exactly once."
+    ),
+    '21. Merge Two Sorted Lists': (
+        "**Approach**: Walk both lists at once with a dummy head, at each step splice on whichever current node is smaller.\n\n**Solution**:\n```go\nfunc mergeTwoLists(list1 *ListNode, list2 *ListNode) *ListNode {\n\tdummy := &ListNode{}\n\tcur := dummy\n\tfor list1 != nil && list2 != nil {\n\t\tif list1.Val <= list2.Val {\n\t\t\tcur.Next = list1\n\t\t\tlist1 = list1.Next\n\t\t} else {\n\t\t\tcur.Next = list2\n\t\t\tlist2 = list2.Next\n\t\t}\n\t\tcur = cur.Next\n\t}\n\tif list1 != nil {\n\t\tcur.Next = list1\n\t} else {\n\t\tcur.Next = list2\n\t}\n\treturn dummy.Next\n}\n```\n\n**Complexity**: Time O(n + m), space O(1) beyond the dummy node: nodes are spliced in place, never copied.\n\n**Why this works**: both inputs are already sorted, so the smaller of the two current heads is always next in the merged order; once one list runs out, the rest of the other is already sorted and can be attached whole."
+    ),
+    '141. Linked List Cycle': (
+        "**Approach**: Floyd's tortoise and hare: one pointer moves one step at a time, another moves two. If there's a cycle, the fast pointer eventually laps the slow one.\n\n**Solution**:\n```go\nfunc hasCycle(head *ListNode) bool {\n\tslow, fast := head, head\n\tfor fast != nil && fast.Next != nil {\n\t\tslow = slow.Next\n\t\tfast = fast.Next.Next\n\t\tif slow == fast {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n```\n\n**Complexity**: Time O(n), space O(1): no extra structure needed, unlike a seen-set approach.\n\n**Why this works**: in a cycle, the gap between fast and slow shrinks by one every step (fast gains two, slow gains one), so they're guaranteed to meet; with no cycle, fast simply reaches nil first."
+    ),
+    '226. Invert Binary Tree': (
+        "**Approach**: Recursively invert both subtrees, then swap the (already-inverted) left and right children.\n\n**Solution**:\n```go\nfunc invertTree(root *TreeNode) *TreeNode {\n\tif root == nil {\n\t\treturn nil\n\t}\n\troot.Left, root.Right = invertTree(root.Right), invertTree(root.Left)\n\treturn root\n}\n```\n\n**Complexity**: Time O(n), space O(h) for the recursion stack (h = tree height).\n\n**Why this works**: every node's left/right subtrees get mirrored by the recursive calls before the swap happens at that node, so the whole tree ends up mirrored bottom-up."
+    ),
+    '104. Maximum Depth of Binary Tree': (
+        "**Approach**: The depth of a tree is 1 plus the deeper of its two subtrees' depths, recursively, bottoming out at 0 for an empty tree.\n\n**Solution**:\n```go\nfunc maxDepth(root *TreeNode) int {\n\tif root == nil {\n\t\treturn 0\n\t}\n\tl := maxDepth(root.Left)\n\tr := maxDepth(root.Right)\n\tif l > r {\n\t\treturn l + 1\n\t}\n\treturn r + 1\n}\n```\n\n**Complexity**: Time O(n), space O(h) for the recursion stack.\n\n**Why this works**: the longest root-to-leaf path through any node must go through its deeper child, so taking the max of the two subtree depths and adding 1 for the current node is exactly the definition of depth."
+    ),
+    '100. Same Tree': (
+        "**Approach**: Two trees are the same if both roots are nil, or both are non-nil with equal values and recursively-identical left and right subtrees.\n\n**Solution**:\n```go\nfunc isSameTree(p *TreeNode, q *TreeNode) bool {\n\tif p == nil && q == nil {\n\t\treturn true\n\t}\n\tif p == nil || q == nil || p.Val != q.Val {\n\t\treturn false\n\t}\n\treturn isSameTree(p.Left, q.Left) && isSameTree(p.Right, q.Right)\n}\n```\n\n**Complexity**: Time O(min(n, m)), space O(h): stops as soon as a mismatch is found.\n\n**Why this works**: structural + value equality is exactly this recursive definition, checked top-down; any single mismatch (nil vs non-nil, or unequal values) short-circuits to false immediately."
     ),
 }
 
