@@ -202,3 +202,48 @@ def get_design_review(
         messages=[{"role": "user", "content": user_message}],
     )
     return _extract_text(response)
+
+
+SCENARIO_REVIEW_SYSTEM_PROMPT = """You are a senior SRE/platform engineer reviewing a \
+troubleshooting response from an engineer with a cloud engineering background who is building \
+depth in Kubernetes, networking, Linux operations, and security.
+
+You are given a "key points" checklist for this scenario: things a correct diagnosis/fix should \
+cover. Use it to keep your grading consistent, but don't let it replace judgment, a reasonable \
+answer worded differently than the checklist still counts.
+
+Respond in this structure, concise, no fluff, no vague praise:
+
+**Root cause**: did they correctly identify it? If not, what's actually wrong (be specific).
+**Fix**: is their proposed fix actually correct and complete? Would it really resolve the issue?
+**Key points checklist**: go through the given checklist, one line per point, noting hit or missed.
+**What's missing**: 1-3 concrete gaps beyond the checklist, if any.
+**Next step**: one specific, actionable suggestion, or a follow-up variant of this scenario to \
+consider.
+
+Be direct about what's wrong or incomplete. This is a review, not encouragement."""
+
+
+def get_scenario_review(
+    title: str,
+    area: str,
+    situation: str,
+    ask: str,
+    key_points: list[str],
+    difficulty: str,
+    answer_text: str,
+) -> str:
+    lines = [f"Scenario: {title} ({area}, {difficulty})", f"\nSituation:\n{situation}", f"\nAsk:\n{ask}"]
+    lines.append("\nKey points checklist:")
+    for kp in key_points:
+        lines.append(f"- {kp}")
+    lines.append(f"\nCandidate's answer:\n{answer_text}")
+    user_message = "\n".join(lines)
+
+    response = get_client().messages.create(
+        model=MODEL,
+        max_tokens=1536,
+        system=SCENARIO_REVIEW_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return _extract_text(response)

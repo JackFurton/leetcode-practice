@@ -121,3 +121,29 @@ class DesignSubmission(SQLModel, table=True):
     answer_text: str
     review: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ScenarioProblem(SQLModel, table=True):
+    """Cloud/network/K8s/Linux troubleshooting scenarios: same free-text ->
+    Claude-review shape as DesignProblem, but grading is anchored to a
+    per-scenario key_points checklist (things a correct diagnosis/fix
+    should cover) instead of a fully unconstrained review, to keep grading
+    consistent across scenarios."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    area: str  # "kubernetes" / "networking" / "linux" / "security"
+    difficulty: str = "Medium"
+    situation: str  # what's broken, plus given logs/config/command output
+    ask: str  # what the candidate is asked to do (diagnose, diagnose + fix)
+    key_points: str  # JSON list of strings, a correct answer should cover these
+    status: str = "todo"  # todo / attempted / reviewed
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ScenarioSubmission(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    scenario_id: int = Field(foreign_key="scenarioproblem.id")
+    answer_text: str
+    review: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -56,6 +56,9 @@ mouse needed:
 - **System Design** (`s`): sortable list of design prompts (see
   [System design track](#system-design-track)), a free-text answer editor,
   submit for a structured Claude review.
+- **Ops Scenarios** (`o`): sortable list of troubleshooting scenarios (see
+  [Ops/cloud scenarios track](#opscloud-scenarios-track)), same free-text
+  answer + review flow as System Design.
 
 Navigation is vim-style everywhere: `h j k l`, `gg`/`G` (top/bottom),
 `ctrl+d`/`ctrl+u` (page down/up), `escape` backs out (see below, always gets
@@ -184,6 +187,20 @@ mark it `reviewed` yourself once you're satisfied. `s` from the dashboard.
 Text-only for now, no diagramming (see the [diagram canvas issue](https://github.com/JackFurton/leetcode-practice/issues/4)
 for that as a follow-up).
 
+## Ops/cloud scenarios track
+
+11 troubleshooting scenarios (see `app/scenario_catalog.py`) across
+Kubernetes, networking, Linux operations, and security: a broken manifest,
+a security-group gap, a systemd ordering bug, an inode-exhaustion trap, an
+overly-permissive S3 bucket policy, and more, each with realistic given
+logs/config/command output and a diagnose-and-fix ask. Grading is anchored
+to a per-scenario `key_points` checklist (things a correct answer should
+identify), not a fully unconstrained review, so it stays consistent across
+scenarios (`get_scenario_review` in `app/claude_client.py`). The checklist
+itself isn't shown, it's the rubric, not part of the prompt. Same
+todo/attempted/reviewed status model as system design. `o` from the
+dashboard.
+
 ## Vision
 
 Started as a LeetCode trainer, growing into a general tech-skills gym: SWE
@@ -198,7 +215,7 @@ it can grow one scoped piece at a time instead of all at once:
 - ~~[Bash/shell scripting problems track](https://github.com/JackFurton/leetcode-practice/issues/2)~~ (shipped, see [Bash track](#bash-track))
 - ~~[System design module v1 (text + Claude review)](https://github.com/JackFurton/leetcode-practice/issues/3)~~ (shipped, see [System design track](#system-design-track))
 - [System design diagram canvas (phase 2)](https://github.com/JackFurton/leetcode-practice/issues/4)
-- [Cloud/network/K8s/Linux troubleshooting track](https://github.com/JackFurton/leetcode-practice/issues/5)
+- ~~[Cloud/network/K8s/Linux troubleshooting track](https://github.com/JackFurton/leetcode-practice/issues/5)~~ (shipped, see [Ops/cloud scenarios track](#opscloud-scenarios-track))
 - Multi-language ports: [Java](https://github.com/JackFurton/leetcode-practice/issues/6),
   [C++](https://github.com/JackFurton/leetcode-practice/issues/7),
   [Rust](https://github.com/JackFurton/leetcode-practice/issues/8),
