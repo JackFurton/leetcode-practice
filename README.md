@@ -53,6 +53,9 @@ mouse needed:
 - **Learn** (`l`): pattern checklist by category, an ASCII diagram on the
   more visual topics, space to toggle done, select a topic to see its
   explanation + template.
+- **System Design** (`s`): sortable list of design prompts (see
+  [System design track](#system-design-track)), a free-text answer editor,
+  submit for a structured Claude review.
 
 Navigation is vim-style everywhere: `h j k l`, `gg`/`G` (top/bottom),
 `ctrl+d`/`ctrl+u` (page down/up), `escape` backs out (see below, always gets
@@ -166,6 +169,21 @@ commands, so submissions run with their cwd set to a disposable temp
 directory. Still not a sandbox (see [Security note](#security-note)) beyond
 that.
 
+## System design track
+
+8 prompts (see `app/design_catalog.py`): URL shortener, rate limiter, chat
+system, news feed, distributed key-value store, job queue, web crawler,
+notification system, each with real constraints (scale numbers, consistency
+requirements, failure expectations). Write your design as free text in the
+answer editor, submit for a Claude review structured around requirements
+coverage, scaling story, failure modes, what's missing, and a concrete next
+step (`app/claude_client.py`'s `get_design_review`, a distinct system prompt
+from the code review one). No pass/fail here since there's nothing to
+execute, submitting just moves a problem from `todo` to `attempted`; you
+mark it `reviewed` yourself once you're satisfied. `s` from the dashboard.
+Text-only for now, no diagramming (see the [diagram canvas issue](https://github.com/JackFurton/leetcode-practice/issues/4)
+for that as a follow-up).
+
 ## Vision
 
 Started as a LeetCode trainer, growing into a general tech-skills gym: SWE
@@ -178,7 +196,7 @@ it can grow one scoped piece at a time instead of all at once:
 
 - ~~[SQL problems track](https://github.com/JackFurton/leetcode-practice/issues/1)~~ (shipped, see [SQL track](#sql-track))
 - ~~[Bash/shell scripting problems track](https://github.com/JackFurton/leetcode-practice/issues/2)~~ (shipped, see [Bash track](#bash-track))
-- [System design module v1 (text + Claude review)](https://github.com/JackFurton/leetcode-practice/issues/3)
+- ~~[System design module v1 (text + Claude review)](https://github.com/JackFurton/leetcode-practice/issues/3)~~ (shipped, see [System design track](#system-design-track))
 - [System design diagram canvas (phase 2)](https://github.com/JackFurton/leetcode-practice/issues/4)
 - [Cloud/network/K8s/Linux troubleshooting track](https://github.com/JackFurton/leetcode-practice/issues/5)
 - Multi-language ports: [Java](https://github.com/JackFurton/leetcode-practice/issues/6),

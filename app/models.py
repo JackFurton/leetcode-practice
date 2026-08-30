@@ -98,3 +98,26 @@ class BashTestCase(SQLModel, table=True):
     problem_id: int = Field(foreign_key="problem.id")
     stdin: str
     expected_stdout: str
+
+
+class DesignProblem(SQLModel, table=True):
+    """System design prompts: no test cases, no pass/fail, so this is its
+    own top-level table rather than another Problem variant -- grading is
+    Claude reading the free-text answer, not running anything."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    prompt: str  # the scenario, plain text
+    constraints: str  # one requirement/constraint per line
+    difficulty: str = "Medium"
+    topic: Optional[str] = None  # e.g. "URL shortener", "rate limiter"
+    status: str = "todo"  # todo / attempted / reviewed (user sets reviewed themselves)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DesignSubmission(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    design_problem_id: int = Field(foreign_key="designproblem.id")
+    answer_text: str
+    review: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)

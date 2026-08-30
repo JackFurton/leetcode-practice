@@ -35,17 +35,20 @@ from textual.widgets import (
 )
 from textual.widgets.text_area import TextAreaTheme
 
-from app.claude_client import get_hint, get_solution, review_submission
+from app.claude_client import get_design_review, get_hint, get_solution, review_submission
 from app.curriculum import CURRICULUM
 from app.db import engine, init_db
 from app.bash_catalog import seed_bash_catalog
 from app.bash_runner import run_bash_submission
 from app.bash_runner import is_unedited as bash_is_unedited
+from app.design_catalog import seed_design_catalog
 from app.go_runner import run_go_submission
 from app.go_runner import is_unedited as go_is_unedited
 from app.models import (
     BashProblem,
     BashTestCase,
+    DesignProblem,
+    DesignSubmission,
     Problem,
     ProblemStarter,
     SqlProblem,
@@ -62,6 +65,7 @@ from app.stats import compute_dashboard_stats
 
 DIFFICULTY_ORDER = {"Easy": 0, "Medium": 1, "Hard": 2}
 STATUS_ORDER = {"todo": 0, "attempted": 1, "solved": 2}
+DESIGN_STATUS_ORDER = {"todo": 0, "attempted": 1, "reviewed": 2}
 
 # -------------------------------------------------------------------- theme
 # Select/Button/TextArea etc pull their colors from the App's registered
@@ -359,6 +363,7 @@ class DashboardScreen(Screen):
     BINDINGS = [
         Binding("p", "goto_problems", "problems"),
         Binding("l", "goto_learn", "learn"),
+        Binding("s", "goto_design", "system design"),
         Binding("q", "app.quit", "quit"),
         Binding("j", "scroll_line(1)", "down", show=False),
         Binding("k", "scroll_line(-1)", "up", show=False),
@@ -438,7 +443,10 @@ class DashboardScreen(Screen):
             lines.append(f"  {c['name']:<22} [{bar}] {c['solved']}/{c['total']}")
 
         lines.append("")
-        lines.append("[dim]p:problems  l:learn  c:continue  q:quit  j/k gg/G ^d/^u: scroll[/dim]")
+        lines.append(
+            "[dim]p:problems  l:learn  s:system design  c:continue  q:quit  "
+            "j/k gg/G ^d/^u: scroll[/dim]"
+        )
 
         self.query_one("#dash-body", Static).update("\n".join(lines))
 
@@ -447,6 +455,9 @@ class DashboardScreen(Screen):
 
     def action_goto_learn(self) -> None:
         self.app.push_screen(LearnScreen())
+
+    def action_goto_design(self) -> None:
+        self.app.push_screen(DesignScreen())
 
     def action_continue_problem(self) -> None:
         if self._continue_id is not None:
@@ -1101,6 +1112,241 @@ class LearnScreen(Screen):
         node.set_label(f"({mark}) {esc(topic_name)}")
 
 
+# ------------------------------------------------------------ system design
+
+
+class DesignScreen(Screen):
+    BINDINGS = [
+        Binding("escape", "app.pop_screen", "back"),
+        Binding("t", "sort('title')", "sort title"),
+        Binding("d", "sort('difficulty')", "sort difficulty"),
+        Binding("s", "sort('status')", "sort status"),
+        Binding("j", "cursor_down", "down", show=False),
+        Binding("k", "cursor_up", "up", show=False),
+        Binding("l,enter", "open_row", "open", show=False),
+        Binding("h", "app.pop_screen", "back", show=False),
+        Binding("G", "cursor_bottom", "bottom", show=False),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.sort_key = "title"
+        self.sort_dir = "asc"
+        self._gchord = _Chord()
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield DataTable(id="design-table")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        table = self.query_one(DataTable)
+        table.cursor_type = "row"
+        table.add_columns("Title", "Difficulty", "Topic", "Status")
+        self.load_rows()
+        table.focus()
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "g" and self._gchord.tap():
+            self.query_one(DataTable).move_cursor(row=0, column=0)
+            event.stop()
+
+    def load_rows(self) -> None:
+        table = self.query_one(DataTable)
+        table.clear()
+        with _session() as session:
+            problems = session.exec(select(DesignProblem)).all()
+
+        keys = {
+            "title": lambda p: p.title.lower(),
+            "difficulty": lambda p: DIFFICULTY_ORDER.get(p.difficulty, 99),
+            "status": lambda p: DESIGN_STATUS_ORDER.get(p.status, 99),
+        }
+        problems.sort(key=keys[self.sort_key], reverse=(self.sort_dir == "desc"))
+
+        for p in problems:
+            table.add_row(
+                esc(p.title), esc(p.difficulty), esc(p.topic or "-"), esc(p.status), key=str(p.id)
+            )
+
+    def action_sort(self, key: str) -> None:
+        if self.sort_key == key:
+            self.sort_dir = "asc" if self.sort_dir == "desc" else "desc"
+        else:
+            self.sort_key, self.sort_dir = key, "asc"
+        self.load_rows()
+
+    def action_cursor_down(self) -> None:
+        self.query_one(DataTable).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one(DataTable).action_cursor_up()
+
+    def action_cursor_bottom(self) -> None:
+        table = self.query_one(DataTable)
+        if table.row_count:
+            table.move_cursor(row=table.row_count - 1, column=0)
+
+    def action_open_row(self) -> None:
+        table = self.query_one(DataTable)
+        if table.row_count == 0:
+            return
+        table.action_select_cursor()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        self.app.push_screen(DesignDetailScreen(int(event.row_key.value)))
+
+
+class DesignDetailScreen(Screen):
+    """Same box-hopping model as ProblemDetailScreen, a smaller widget set:
+    status, a free-text answer editor, a submit button, the review."""
+
+    BINDINGS = [
+        Binding("escape", "app.pop_screen", "back"),
+    ]
+
+    def __init__(self, design_id: int):
+        super().__init__()
+        self.design_id = design_id
+        self.nav_index = 0
+        self.entered = False
+        self._gchord = _Chord()
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with VerticalScroll():
+            yield Static("", id="dd-info", classes="panel")
+            yield Select(
+                [("todo", "todo"), ("attempted", "attempted"), ("reviewed", "reviewed")],
+                id="dd-status",
+                allow_blank=False,
+            )
+            yield Static(
+                "[b]Your design[/b]  (j/k to move between boxes, l/enter to enter one, "
+                "esc always backs out)"
+            )
+            yield VimTextArea("", id="dd-answer")
+            yield Button("get review", id="dd-submit")
+            yield Static("", id="dd-result", classes="panel")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.load_problem()
+        answer_box = self.query_one("#dd-answer", VimTextArea)
+        answer_box.on_exit_nav = self._exit_to_nav
+        self._focusables = [
+            self.query_one("#dd-status", Select),
+            answer_box,
+            self.query_one("#dd-submit", Button),
+        ]
+        self._highlight()
+
+    def _highlight(self) -> None:
+        for i, widget in enumerate(self._focusables):
+            widget.set_class(i == self.nav_index, "nav-selected")
+
+    def _nav(self, delta: int) -> None:
+        self.nav_index = max(0, min(len(self._focusables) - 1, self.nav_index + delta))
+        self._highlight()
+
+    def _enter_current(self) -> None:
+        widget = self._focusables[self.nav_index]
+        widget.focus()
+        if isinstance(widget, VimTextArea):
+            self.entered = True
+        elif isinstance(widget, Button):
+            widget.press()
+        elif isinstance(widget, Select):
+            widget.action_show_overlay()
+
+    def _exit_to_nav(self) -> None:
+        self.entered = False
+        self.set_focus(None)
+        self._highlight()
+
+    def on_key(self, event: Key) -> None:
+        if self.entered:
+            return
+        key = event.key
+        if key == "j":
+            self._nav(1)
+            event.stop()
+        elif key == "k":
+            self._nav(-1)
+            event.stop()
+        elif key == "g":
+            if self._gchord.tap():
+                self.nav_index = 0
+                self._highlight()
+            event.stop()
+        elif key == "G":
+            self.nav_index = len(self._focusables) - 1
+            self._highlight()
+            event.stop()
+        elif key in ("l", "enter"):
+            self._enter_current()
+            event.stop()
+        elif key == "h":
+            self.app.pop_screen()
+            event.stop()
+
+    def load_problem(self) -> None:
+        with _session() as session:
+            problem = session.get(DesignProblem, self.design_id)
+            self.problem = problem
+
+        lines = [f"[b]{esc(problem.title)}[/b]  [{esc(problem.difficulty)}]"]
+        lines.append("")
+        lines.append(esc(problem.prompt))
+        if problem.constraints:
+            lines.append("")
+            lines.append("[dim]constraints:[/dim]")
+            for c in problem.constraints.split("\n"):
+                lines.append(f"  - {esc(c)}")
+        self.query_one("#dd-info", Static).update("\n".join(lines))
+
+        self.query_one("#dd-status", Select).value = problem.status
+        self.query_one("#dd-answer", VimTextArea).text = ""
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "dd-status":
+            with _session() as session:
+                problem = session.get(DesignProblem, self.design_id)
+                problem.status = event.value
+                session.add(problem)
+                session.commit()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "dd-submit":
+            self.query_one("#dd-result", Static).update("[dim]thinking...[/dim]")
+            self.do_submit()
+
+    def _show_submit_result(self, text: str, new_status: str) -> None:
+        self.query_one("#dd-result", Static).update(text)
+        self.query_one("#dd-status", Select).value = new_status
+
+    @work(thread=True, exclusive=True)
+    def do_submit(self) -> None:
+        answer = self.query_one("#dd-answer", VimTextArea).text
+        with _session() as session:
+            problem = session.get(DesignProblem, self.design_id)
+            review_text = get_design_review(
+                problem.title, problem.prompt, problem.constraints, problem.difficulty, answer
+            )
+            session.add(
+                DesignSubmission(
+                    design_problem_id=self.design_id, answer_text=answer, review=review_text
+                )
+            )
+            if problem.status == "todo" and answer.strip():
+                problem.status = "attempted"
+                session.add(problem)
+            session.commit()
+            new_status = problem.status
+
+        self.app.call_from_thread(self._show_submit_result, esc(review_text), new_status)
+
+
 # ---------------------------------------------------------------------- app
 
 
@@ -1119,6 +1365,7 @@ class LCTrainerApp(App):
             seed_catalog(session)
             seed_sql_catalog(session)
             seed_bash_catalog(session)
+            seed_design_catalog(session)
         self.push_screen(DashboardScreen())
 
 

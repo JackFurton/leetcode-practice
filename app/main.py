@@ -13,6 +13,7 @@ from app.leetcode_client import fetch_problem
 from app.models import Problem, Submission, TestCase, TopicProgress
 from app.runner import run_submission, is_unedited
 from app.bash_catalog import seed_bash_catalog
+from app.design_catalog import seed_design_catalog
 from app.seed_catalog import seed_catalog
 from app.sql_catalog import seed_sql_catalog
 from app.stats import compute_dashboard_stats
@@ -73,6 +74,7 @@ def on_startup():
         seed_catalog(session)
         seed_sql_catalog(session)
         seed_bash_catalog(session)
+        seed_design_catalog(session)
 
 
 DIFFICULTY_ORDER = {"Easy": 0, "Medium": 1, "Hard": 2}

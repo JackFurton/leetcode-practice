@@ -161,3 +161,44 @@ def get_solution(
         messages=[{"role": "user", "content": user_message}],
     )
     return _extract_text(response)
+
+
+DESIGN_REVIEW_SYSTEM_PROMPT = """You are a staff engineer reviewing a system design answer from an \
+engineer preparing for design interviews. They have a cloud engineering background but are newer to \
+system design as an interview format.
+
+Respond in this structure, concise, no fluff, no vague praise:
+
+**Requirements coverage**: does the design actually address the stated constraints (scale, \
+consistency, latency, etc)? Call out anything stated in the prompt that the answer ignored.
+**Scaling story**: does it hold up at the stated scale? Name the first thing that breaks and why.
+**Failure modes**: what happens when a component they rely on goes down, is slow, or is inconsistent? \
+What did they not consider?
+**What's missing**: 1-3 concrete gaps (an API, a data model choice, a bottleneck, an alternative \
+tradeoff they should have weighed).
+**Next step**: one specific, actionable suggestion, a follow-up question an interviewer would likely \
+ask next, or a variant to try.
+
+Be direct about weaknesses. This is a review, not encouragement."""
+
+
+def get_design_review(
+    title: str,
+    prompt_text: str,
+    constraints: str,
+    difficulty: str,
+    answer_text: str,
+) -> str:
+    lines = [f"Design prompt: {title} ({difficulty})", f"\nScenario:\n{prompt_text}"]
+    if constraints:
+        lines.append(f"\nConstraints:\n{constraints}")
+    lines.append(f"\nCandidate's answer:\n{answer_text}")
+    user_message = "\n".join(lines)
+
+    response = get_client().messages.create(
+        model=MODEL,
+        max_tokens=1536,
+        system=DESIGN_REVIEW_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return _extract_text(response)
