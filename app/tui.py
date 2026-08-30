@@ -38,9 +38,21 @@ from textual.widgets.text_area import TextAreaTheme
 from app.claude_client import get_hint, get_solution, review_submission
 from app.curriculum import CURRICULUM
 from app.db import engine, init_db
+from app.bash_catalog import seed_bash_catalog
+from app.bash_runner import run_bash_submission
+from app.bash_runner import is_unedited as bash_is_unedited
 from app.go_runner import run_go_submission
 from app.go_runner import is_unedited as go_is_unedited
-from app.models import Problem, ProblemStarter, SqlProblem, Submission, TestCase, TopicProgress
+from app.models import (
+    BashProblem,
+    BashTestCase,
+    Problem,
+    ProblemStarter,
+    SqlProblem,
+    Submission,
+    TestCase,
+    TopicProgress,
+)
 from app.runner import run_submission, is_unedited
 from app.seed_catalog import seed_catalog
 from app.sql_catalog import seed_sql_catalog
@@ -594,6 +606,8 @@ class ProblemDetailScreen(Screen):
         self.current_language = "python"
         self.starters: dict[str, ProblemStarter] = {}  # non-python languages, by name
         self.sql_problem: SqlProblem | None = None
+        self.bash_problem: BashProblem | None = None
+        self.bash_test_cases: list[BashTestCase] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -703,13 +717,26 @@ class ProblemDetailScreen(Screen):
             self.sql_problem = session.exec(
                 select(SqlProblem).where(SqlProblem.problem_id == self.problem_id)
             ).first()
+            self.bash_problem = session.exec(
+                select(BashProblem).where(BashProblem.problem_id == self.problem_id)
+            ).first()
+            self.bash_test_cases = session.exec(
+                select(BashTestCase).where(BashTestCase.problem_id == self.problem_id)
+            ).all()
 
         languages = [("python", "python")] + [(lang, lang) for lang in sorted(self.starters)]
         if self.sql_problem:
             languages.append(("sql", "sql"))
-        # SQL-only problems have no python function signature at all, default
-        # straight to the language that actually applies.
-        self.current_language = "sql" if (self.sql_problem and not problem.function_name) else "python"
+        if self.bash_problem:
+            languages.append(("bash", "bash"))
+        # SQL/bash-only problems have no python function signature at all,
+        # default straight to the language that actually applies.
+        if not problem.function_name and self.sql_problem:
+            self.current_language = "sql"
+        elif not problem.function_name and self.bash_problem:
+            self.current_language = "bash"
+        else:
+            self.current_language = "python"
         lang_select = self.query_one("#pd-language", Select)
         lang_select.set_options(languages)
         lang_select.value = self.current_language
@@ -734,6 +761,12 @@ class ProblemDetailScreen(Screen):
             lines.append("[dim]schema:[/dim]")
             for schema_line in self.sql_problem.setup_sql.strip().splitlines():
                 lines.append(f"  {esc(schema_line.strip())}")
+        if self.bash_test_cases:
+            lines.append("")
+            lines.append("[dim]examples (stdin -> stdout):[/dim]")
+            for i, tc in enumerate(self.bash_test_cases, 1):
+                lines.append(f"  {i}. in:  {esc(repr(tc.stdin))}")
+                lines.append(f"     out: {esc(repr(tc.expected_stdout))}")
         self.query_one("#pd-info", Static).update("\n".join(lines))
 
         self.query_one("#pd-status", Select).value = problem.status
@@ -749,6 +782,9 @@ class ProblemDetailScreen(Screen):
         elif self.current_language == "sql":
             code_box.language = "sql"
             code_box.text = self.sql_problem.starter_code
+        elif self.current_language == "bash":
+            code_box.language = "bash"
+            code_box.text = self.bash_problem.starter_code
         else:
             starter = self.starters[self.current_language]
             code_box.language = self.current_language if self.current_language in (
@@ -829,11 +865,15 @@ class ProblemDetailScreen(Screen):
                     json.loads(sql_problem.expected_rows),
                 )
                 edited = not sql_is_unedited(code, sql_problem.starter_code)
+            elif language == "bash":
+                bash_cases = [(tc.stdin, tc.expected_stdout) for tc in self.bash_test_cases]
+                result = run_bash_submission(code, bash_cases)
+                edited = not bash_is_unedited(code, self.bash_problem.starter_code)
             else:
                 result = {"ok": False, "results": [], "error": f"Unsupported language: {language}"}
                 edited = True
 
-            has_cases = len(cases) > 0 if language != "sql" else len(result["results"]) > 0
+            has_cases = len(cases) > 0 if language in ("python", "go") else len(result["results"]) > 0
             passed = result["ok"] and all(r.get("passed") for r in result["results"]) and has_cases
 
             review_text = review_submission(
@@ -926,6 +966,21 @@ class ProblemDetailScreen(Screen):
                     session.add(sql_problem)
                     session.commit()
                 solution = sql_problem.cached_solution
+            elif language == "bash":
+                bash_problem = session.exec(
+                    select(BashProblem).where(BashProblem.problem_id == self.problem_id)
+                ).first()
+                if not bash_problem.cached_solution:
+                    bash_problem.cached_solution = get_solution(
+                        f"{problem.title} (bash)",
+                        problem.notes,
+                        problem.difficulty,
+                        "script",
+                        bash_problem.starter_code,
+                    )
+                    session.add(bash_problem)
+                    session.commit()
+                solution = bash_problem.cached_solution
             else:
                 starter = session.exec(
                     select(ProblemStarter).where(
@@ -1063,6 +1118,7 @@ class LCTrainerApp(App):
         with _session() as session:
             seed_catalog(session)
             seed_sql_catalog(session)
+            seed_bash_catalog(session)
         self.push_screen(DashboardScreen())
 
 

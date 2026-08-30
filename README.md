@@ -113,7 +113,10 @@ uvicorn app.main:app --reload
 
 Code execution is a subprocess with a timeout, not a full sandbox (no
 docker/seccomp). Fine for a local, single-user tool running code you wrote
-yourself. Don't paste code you don't trust.
+yourself. Don't paste code you don't trust. Bash submissions run with cwd
+set to a disposable temp directory as one extra precaution, since a
+destructive shell command is far more direct than a bug in Python/Go/SQL,
+but it's still a real subprocess, not a sandbox.
 
 ## Contributing
 
@@ -150,6 +153,19 @@ result set (order-insensitive) against that. Only a single read-only
 [Security note](#security-note)). Picking a SQL problem in the TUI defaults
 the language picker straight to `sql`.
 
+## Bash track
+
+6 problems (see `app/bash_catalog.py`): text processing and log-parsing
+tasks (tenth line, word frequency, valid phone numbers, transpose file,
+counting 5xx errors, counting unique IPs), the last two deliberately
+SRE-flavored. Submitting pipes stdin into your script with real `bash`
+(`app/bash_runner.py`) and diffs stdout against the expected output
+(ignoring a trailing newline). Bash is meaningfully more dangerous than the
+other runners here, it's not a sandboxed interpreter, it's literal shell
+commands, so submissions run with their cwd set to a disposable temp
+directory. Still not a sandbox (see [Security note](#security-note)) beyond
+that.
+
 ## Vision
 
 Started as a LeetCode trainer, growing into a general tech-skills gym: SWE
@@ -161,7 +177,7 @@ vim-first TUI). The roadmap for that is tracked as
 it can grow one scoped piece at a time instead of all at once:
 
 - ~~[SQL problems track](https://github.com/JackFurton/leetcode-practice/issues/1)~~ (shipped, see [SQL track](#sql-track))
-- [Bash/shell scripting problems track](https://github.com/JackFurton/leetcode-practice/issues/2)
+- ~~[Bash/shell scripting problems track](https://github.com/JackFurton/leetcode-practice/issues/2)~~ (shipped, see [Bash track](#bash-track))
 - [System design module v1 (text + Claude review)](https://github.com/JackFurton/leetcode-practice/issues/3)
 - [System design diagram canvas (phase 2)](https://github.com/JackFurton/leetcode-practice/issues/4)
 - [Cloud/network/K8s/Linux troubleshooting track](https://github.com/JackFurton/leetcode-practice/issues/5)

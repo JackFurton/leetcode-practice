@@ -81,3 +81,20 @@ class SqlProblem(SQLModel, table=True):
     expected_columns: str  # JSON list of column names, for display
     expected_rows: str  # JSON list of row lists, order-insensitive compare
     cached_solution: Optional[str] = None
+
+
+class BashProblem(SQLModel, table=True):
+    """Bash problems are stdin -> stdout, not a function signature either,
+    so same idea as SqlProblem: its own table, its own test-case shape."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    problem_id: int = Field(foreign_key="problem.id")
+    starter_code: str
+    cached_solution: Optional[str] = None
+
+
+class BashTestCase(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    problem_id: int = Field(foreign_key="problem.id")
+    stdin: str
+    expected_stdout: str
