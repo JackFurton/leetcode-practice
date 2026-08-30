@@ -135,9 +135,30 @@ wrapper approach.
 
 Java, C++, Rust, TypeScript, JavaScript: each needs the same treatment as
 Go (its own runner harness + typed test-case codegen + a slice of the
-catalog ported over), not started yet.
+catalog ported over). Tracked as [issues](https://github.com/JackFurton/leetcode-practice/issues),
+not started yet.
 
-## Roadmap ideas
+## Vision
 
-- Per-problem diagrams (auto-generated from test-case data) in the web UI
-- Language support for the web UI too (currently Go is TUI-only)
+Started as a LeetCode trainer, growing into a general tech-skills gym: SWE
+(LC patterns, system design), SRE (bash, SQL, Linux, K8s), and cloud/network
+fundamentals, all under the same review-and-track model this repo already
+has (real test cases or real scenarios, Claude review, progress tracking,
+vim-first TUI). The roadmap for that is tracked as
+[GitHub issues](https://github.com/JackFurton/leetcode-practice/issues) so
+it can grow one scoped piece at a time instead of all at once:
+
+- [SQL problems track](https://github.com/JackFurton/leetcode-practice/issues/1)
+- [Bash/shell scripting problems track](https://github.com/JackFurton/leetcode-practice/issues/2)
+- [System design module v1 (text + Claude review)](https://github.com/JackFurton/leetcode-practice/issues/3)
+- [System design diagram canvas (phase 2)](https://github.com/JackFurton/leetcode-practice/issues/4)
+- [Cloud/network/K8s/Linux troubleshooting track](https://github.com/JackFurton/leetcode-practice/issues/5)
+- Multi-language ports: [Java](https://github.com/JackFurton/leetcode-practice/issues/6),
+  [C++](https://github.com/JackFurton/leetcode-practice/issues/7),
+  [Rust](https://github.com/JackFurton/leetcode-practice/issues/8),
+  [TypeScript](https://github.com/JackFurton/leetcode-practice/issues/9),
+  [JavaScript](https://github.com/JackFurton/leetcode-practice/issues/10)
+- Smaller polish: [dashboard box-hopping nav](https://github.com/JackFurton/leetcode-practice/issues/11),
+  [Go linked-list/tree support](https://github.com/JackFurton/leetcode-practice/issues/12),
+  [web UI language parity](https://github.com/JackFurton/leetcode-practice/issues/13),
+  [web UI per-problem diagrams](https://github.com/JackFurton/leetcode-practice/issues/14)
