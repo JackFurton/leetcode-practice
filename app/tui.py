@@ -369,15 +369,23 @@ class VimTextArea(TextArea):
 
 
 class DashboardScreen(Screen):
+    """The progress/streak header and pattern bars stay static text, but
+    Continue/Due-for-review/By-pattern are box-hoppable: j/k move a
+    highlight between them, l/enter jumps into whichever's selected, same
+    feel as the problem detail screen's nav, just over rendered lines
+    instead of separate widgets (a DataTable per section would be overkill
+    here)."""
+
     BINDINGS = [
         Binding("p", "goto_problems", "problems"),
         Binding("l", "goto_learn", "learn"),
         Binding("s", "goto_design", "system design"),
         Binding("o", "goto_scenarios", "ops scenarios"),
         Binding("q", "app.quit", "quit"),
-        Binding("j", "scroll_line(1)", "down", show=False),
-        Binding("k", "scroll_line(-1)", "up", show=False),
-        Binding("G", "scroll_bottom", "bottom", show=False),
+        Binding("j", "nav(1)", "down", show=False),
+        Binding("k", "nav(-1)", "up", show=False),
+        Binding("G", "nav_bottom", "bottom", show=False),
+        Binding("enter", "activate", "open", show=False),
         Binding("ctrl+d", "scroll_page(1)", "page down", show=False),
         Binding("ctrl+u", "scroll_page(-1)", "page up", show=False),
         Binding("c", "continue_problem", "continue"),
@@ -387,6 +395,9 @@ class DashboardScreen(Screen):
         super().__init__()
         self._gchord = _Chord()
         self._continue_id: int | None = None
+        self._raw_lines: list[str] = []
+        self._nav_items: list[dict] = []  # [{"line": int, "action": Callable[[], None]}]
+        self.nav_index = 0
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -399,14 +410,26 @@ class DashboardScreen(Screen):
 
     def on_key(self, event: Key) -> None:
         if event.key == "g" and self._gchord.tap():
-            self.query_one("#dash-scroll", VerticalScroll).scroll_home(animate=False)
+            self.nav_index = 0
+            self._redraw()
             event.stop()
 
-    def action_scroll_line(self, direction: int) -> None:
-        self.query_one("#dash-scroll", VerticalScroll).scroll_relative(y=direction, animate=False)
+    def action_nav(self, delta: int) -> None:
+        if not self._nav_items:
+            return
+        self.nav_index = max(0, min(len(self._nav_items) - 1, self.nav_index + delta))
+        self._redraw()
 
-    def action_scroll_bottom(self) -> None:
-        self.query_one("#dash-scroll", VerticalScroll).scroll_end(animate=False)
+    def action_nav_bottom(self) -> None:
+        if not self._nav_items:
+            return
+        self.nav_index = len(self._nav_items) - 1
+        self._redraw()
+
+    def action_activate(self) -> None:
+        if not self._nav_items:
+            return
+        self._nav_items[self.nav_index]["action"]()
 
     def action_scroll_page(self, direction: int) -> None:
         scroller = self.query_one("#dash-scroll", VerticalScroll)
@@ -420,6 +443,7 @@ class DashboardScreen(Screen):
             stats = compute_dashboard_stats(session)
 
         lines = []
+        nav_items = []
         lines.append(f"[b]{stats['solved_count']}/{stats['total']} solved[/b]  ({stats['pct']}%)")
         bar_width = 40
         filled = int(bar_width * stats["pct"] / 100)
@@ -434,15 +458,21 @@ class DashboardScreen(Screen):
         self._continue_id = cp.id if cp else None
         lines.append("[b]Continue[/b]")
         if cp:
-            lines.append(f"  -> {esc(cp.title)} [{esc(cp.difficulty)}] ({esc(cp.status)})  (press c)")
+            lines.append(f"-> {esc(cp.title)} [{esc(cp.difficulty)}] ({esc(cp.status)})")
+            nav_items.append(
+                {"line": len(lines) - 1, "action": lambda cid=cp.id: self.app.push_screen(ProblemDetailScreen(cid))}
+            )
         else:
-            lines.append("  [dim]nothing in progress[/dim]")
+            lines.append("[dim]nothing in progress[/dim]")
         lines.append("")
 
         if stats["due_for_review"]:
             lines.append("[b]Due for Review[/b]")
             for p in stats["due_for_review"]:
-                lines.append(f"  - {esc(p.title)}")
+                lines.append(f"- {esc(p.title)}")
+                nav_items.append(
+                    {"line": len(lines) - 1, "action": lambda pid=p.id: self.app.push_screen(ProblemDetailScreen(pid))}
+                )
             lines.append("")
 
         lines.append("[b]By Pattern[/b]")
@@ -450,15 +480,40 @@ class DashboardScreen(Screen):
             pct = round(100 * c["solved"] / c["total"]) if c["total"] else 0
             filled = int(20 * pct / 100)
             bar = "#" * filled + "-" * (20 - filled)
-            lines.append(f"  {c['name']:<22} [{bar}] {c['solved']}/{c['total']}")
+            lines.append(f"{c['name']:<22} [{bar}] {c['solved']}/{c['total']}")
+            nav_items.append(
+                {
+                    "line": len(lines) - 1,
+                    "action": lambda name=c["name"]: self.app.push_screen(ProblemsScreen(initial_filter=name)),
+                }
+            )
 
         lines.append("")
         lines.append(
-            "[dim]p:problems  l:learn  s:system design  o:ops scenarios  c:continue  q:quit  "
-            "j/k gg/G ^d/^u: scroll[/dim]"
+            "[dim]p:problems  l:learn  s:system design  o:ops scenarios  q:quit  "
+            "j/k gg/G: move  enter: open  c:continue  ^d/^u: scroll[/dim]"
         )
 
-        self.query_one("#dash-body", Static).update("\n".join(lines))
+        self._raw_lines = lines
+        self._nav_items = nav_items
+        self.nav_index = min(self.nav_index, max(0, len(nav_items) - 1))
+        self._redraw()
+
+    def _redraw(self) -> None:
+        rendered = list(self._raw_lines)
+        if self._nav_items:
+            selected = self._nav_items[self.nav_index]
+            i = selected["line"]
+            rendered[i] = f"> [$primary]{rendered[i]}[/$primary]"
+            for item in self._nav_items:
+                if item is not selected:
+                    rendered[item["line"]] = f"  {rendered[item['line']]}"
+        self.query_one("#dash-body", Static).update("\n".join(rendered))
+
+        if self._nav_items:
+            scroller = self.query_one("#dash-scroll", VerticalScroll)
+            target_line = self._nav_items[self.nav_index]["line"]
+            scroller.scroll_to(y=max(0, target_line - 3), animate=False)
 
     def action_goto_problems(self) -> None:
         self.app.push_screen(ProblemsScreen())
@@ -494,11 +549,11 @@ class ProblemsScreen(Screen):
         Binding("slash", "start_filter", "filter"),
     ]
 
-    def __init__(self):
+    def __init__(self, initial_filter: str = ""):
         super().__init__()
         self.sort_key = "created"
         self.sort_dir = "desc"
-        self.filter_text = ""
+        self.filter_text = initial_filter
         self._gchord = _Chord()
 
     def compose(self) -> ComposeResult:
@@ -508,7 +563,12 @@ class ProblemsScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.query_one("#filter-input", Input).display = False
+        filter_input = self.query_one("#filter-input", Input)
+        if self.filter_text:
+            filter_input.value = self.filter_text
+            filter_input.display = True
+        else:
+            filter_input.display = False
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.add_columns("Title", "Difficulty", "Topic", "Status")

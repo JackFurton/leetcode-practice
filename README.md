@@ -42,8 +42,10 @@ result after the first pull.
 `./start.sh` drops you straight into a Textual-based TUI, no browser, no
 mouse needed:
 
-- **Dashboard**: overall progress, per-difficulty breakdown, streak, per-pattern
-  progress bars, `c` to jump into "continue where you left off", due-for-review.
+- **Dashboard**: overall progress, per-difficulty breakdown, streak, box-hoppable
+  (`j`/`k`/`gg`/`G`, `enter`) between Continue, each Due-for-Review item, and
+  each pattern row (opens Problems pre-filtered to that pattern); `c` is
+  still the direct shortcut into Continue.
 - **Problems** (`p`): sortable list (`t`/`d`/`s` for title/difficulty/status),
   `/` to filter, enter a row to open it.
 - **Problem detail**: description, constraints, examples, a language picker
