@@ -65,3 +65,19 @@ class ProblemStarter(SQLModel, table=True):
     arg_types: str  # JSON list of language-specific type strings, one per positional arg
     return_type: str
     cached_solution: Optional[str] = None
+
+
+class SqlProblem(SQLModel, table=True):
+    """SQL problems don't fit the function-signature shape ProblemStarter
+    assumes (no function_name/args), so they get their own table: a schema
+    to stand up in a fresh in-memory SQLite db, and the expected result set
+    of the canonical query, run and captured for real (not hand-typed) so
+    grading can't drift from what the reference query actually returns."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    problem_id: int = Field(foreign_key="problem.id")
+    setup_sql: str  # CREATE TABLE + INSERT statements, replayed fresh each submission
+    starter_code: str  # e.g. "-- write your query below\nSELECT"
+    expected_columns: str  # JSON list of column names, for display
+    expected_rows: str  # JSON list of row lists, order-insensitive compare
+    cached_solution: Optional[str] = None

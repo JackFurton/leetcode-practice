@@ -138,6 +138,18 @@ Go (its own runner harness + typed test-case codegen + a slice of the
 catalog ported over). Tracked as [issues](https://github.com/JackFurton/leetcode-practice/issues),
 not started yet.
 
+## SQL track
+
+6 problems (see `app/sql_catalog.py`): joins, aggregation, correlated
+subqueries, self-joins. Each ships a real schema (`CREATE TABLE` + `INSERT`)
+and a reference query that was actually run against it via `sqlite3` to
+capture the expected result, not hand-typed. Submitting runs your query
+against a fresh in-memory SQLite db (`app/sql_runner.py`) and diffs the
+result set (order-insensitive) against that. Only a single read-only
+`SELECT`/`WITH` is allowed, no sandboxing beyond that (see
+[Security note](#security-note)). Picking a SQL problem in the TUI defaults
+the language picker straight to `sql`.
+
 ## Vision
 
 Started as a LeetCode trainer, growing into a general tech-skills gym: SWE
@@ -148,7 +160,7 @@ vim-first TUI). The roadmap for that is tracked as
 [GitHub issues](https://github.com/JackFurton/leetcode-practice/issues) so
 it can grow one scoped piece at a time instead of all at once:
 
-- [SQL problems track](https://github.com/JackFurton/leetcode-practice/issues/1)
+- ~~[SQL problems track](https://github.com/JackFurton/leetcode-practice/issues/1)~~ (shipped, see [SQL track](#sql-track))
 - [Bash/shell scripting problems track](https://github.com/JackFurton/leetcode-practice/issues/2)
 - [System design module v1 (text + Claude review)](https://github.com/JackFurton/leetcode-practice/issues/3)
 - [System design diagram canvas (phase 2)](https://github.com/JackFurton/leetcode-practice/issues/4)

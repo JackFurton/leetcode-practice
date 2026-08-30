@@ -40,9 +40,12 @@ from app.curriculum import CURRICULUM
 from app.db import engine, init_db
 from app.go_runner import run_go_submission
 from app.go_runner import is_unedited as go_is_unedited
-from app.models import Problem, ProblemStarter, Submission, TestCase, TopicProgress
+from app.models import Problem, ProblemStarter, SqlProblem, Submission, TestCase, TopicProgress
 from app.runner import run_submission, is_unedited
 from app.seed_catalog import seed_catalog
+from app.sql_catalog import seed_sql_catalog
+from app.sql_runner import run_sql_submission
+from app.sql_runner import is_unedited as sql_is_unedited
 from app.stats import compute_dashboard_stats
 
 DIFFICULTY_ORDER = {"Easy": 0, "Medium": 1, "Hard": 2}
@@ -590,6 +593,7 @@ class ProblemDetailScreen(Screen):
         self._gchord = _Chord()
         self.current_language = "python"
         self.starters: dict[str, ProblemStarter] = {}  # non-python languages, by name
+        self.sql_problem: SqlProblem | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -696,13 +700,19 @@ class ProblemDetailScreen(Screen):
                     select(ProblemStarter).where(ProblemStarter.problem_id == self.problem_id)
                 ).all()
             }
+            self.sql_problem = session.exec(
+                select(SqlProblem).where(SqlProblem.problem_id == self.problem_id)
+            ).first()
 
-        self.current_language = "python"
+        languages = [("python", "python")] + [(lang, lang) for lang in sorted(self.starters)]
+        if self.sql_problem:
+            languages.append(("sql", "sql"))
+        # SQL-only problems have no python function signature at all, default
+        # straight to the language that actually applies.
+        self.current_language = "sql" if (self.sql_problem and not problem.function_name) else "python"
         lang_select = self.query_one("#pd-language", Select)
-        lang_select.set_options(
-            [("python", "python")] + [(lang, lang) for lang in sorted(self.starters)]
-        )
-        lang_select.value = "python"
+        lang_select.set_options(languages)
+        lang_select.value = self.current_language
 
         lines = [f"[b]{esc(problem.title)}[/b]  [{esc(problem.difficulty)}]"]
         if problem.notes:
@@ -719,6 +729,11 @@ class ProblemDetailScreen(Screen):
             for i, tc in enumerate(test_cases, 1):
                 args = ", ".join(json.dumps(a) for a in json.loads(tc.input_json))
                 lines.append(f"  {i}. {esc(fn_name)}({esc(args)}) -> {esc(tc.expected_json)}")
+        if self.sql_problem:
+            lines.append("")
+            lines.append("[dim]schema:[/dim]")
+            for schema_line in self.sql_problem.setup_sql.strip().splitlines():
+                lines.append(f"  {esc(schema_line.strip())}")
         self.query_one("#pd-info", Static).update("\n".join(lines))
 
         self.query_one("#pd-status", Select).value = problem.status
@@ -731,6 +746,9 @@ class ProblemDetailScreen(Screen):
             fn_name = self.problem.function_name or "solve"
             code_box.language = "python"
             code_box.text = self.problem.starter_code or f"def {fn_name}(*args):\n    pass"
+        elif self.current_language == "sql":
+            code_box.language = "sql"
+            code_box.text = self.sql_problem.starter_code
         else:
             starter = self.starters[self.current_language]
             code_box.language = self.current_language if self.current_language in (
@@ -802,11 +820,21 @@ class ProblemDetailScreen(Screen):
                     code, cases, starter.function_name, arg_types, starter.return_type
                 )
                 edited = not go_is_unedited(code, starter.starter_code)
+            elif language == "sql":
+                sql_problem = self.sql_problem
+                result = run_sql_submission(
+                    code,
+                    sql_problem.setup_sql,
+                    json.loads(sql_problem.expected_columns),
+                    json.loads(sql_problem.expected_rows),
+                )
+                edited = not sql_is_unedited(code, sql_problem.starter_code)
             else:
                 result = {"ok": False, "results": [], "error": f"Unsupported language: {language}"}
                 edited = True
 
-            passed = result["ok"] and all(r.get("passed") for r in result["results"]) and len(cases) > 0
+            has_cases = len(cases) > 0 if language != "sql" else len(result["results"]) > 0
+            passed = result["ok"] and all(r.get("passed") for r in result["results"]) and has_cases
 
             review_text = review_submission(
                 problem_title=problem.title,
@@ -853,6 +881,8 @@ class ProblemDetailScreen(Screen):
                     f"  ({mark}) case {i}: expected={esc(json.dumps(r['expected']))} "
                     f"actual={esc(json.dumps(r.get('actual')))}"
                 )
+                if r.get("detail"):
+                    lines.append(f"      {esc(r['detail'])}")
         lines.append("")
         lines.append(esc(review_text))
         self.app.call_from_thread(self._show_submit_result, "\n".join(lines), new_status)
@@ -881,6 +911,21 @@ class ProblemDetailScreen(Screen):
                     session.add(problem)
                     session.commit()
                 solution = problem.cached_solution
+            elif language == "sql":
+                sql_problem = session.exec(
+                    select(SqlProblem).where(SqlProblem.problem_id == self.problem_id)
+                ).first()
+                if not sql_problem.cached_solution:
+                    sql_problem.cached_solution = get_solution(
+                        f"{problem.title} (SQL)",
+                        problem.notes,
+                        problem.difficulty,
+                        "query",
+                        sql_problem.starter_code,
+                    )
+                    session.add(sql_problem)
+                    session.commit()
+                solution = sql_problem.cached_solution
             else:
                 starter = session.exec(
                     select(ProblemStarter).where(
@@ -1017,6 +1062,7 @@ class LCTrainerApp(App):
         init_db()
         with _session() as session:
             seed_catalog(session)
+            seed_sql_catalog(session)
         self.push_screen(DashboardScreen())
 
 

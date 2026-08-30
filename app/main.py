@@ -13,6 +13,7 @@ from app.leetcode_client import fetch_problem
 from app.models import Problem, Submission, TestCase, TopicProgress
 from app.runner import run_submission, is_unedited
 from app.seed_catalog import seed_catalog
+from app.sql_catalog import seed_sql_catalog
 from app.stats import compute_dashboard_stats
 from app.claude_client import review_submission, get_hint, get_solution
 
@@ -69,6 +70,7 @@ def on_startup():
     init_db()
     with Session(engine) as session:
         seed_catalog(session)
+        seed_sql_catalog(session)
 
 
 DIFFICULTY_ORDER = {"Easy": 0, "Medium": 1, "Hard": 2}
