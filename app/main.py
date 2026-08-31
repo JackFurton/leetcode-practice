@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 
 from app.curriculum import CURRICULUM, CATEGORY_BY_TITLE
 from app.db import engine, get_session, init_db
+from app.diagram import diagram_for_test_case
 from app.go_runner import run_go_submission
 from app.go_runner import is_unedited as go_is_unedited
 from app.leetcode_client import fetch_problem
@@ -245,6 +246,7 @@ def problem_detail(
             "prev_problem": prev_problem,
             "next_problem": next_problem,
             "languages": _available_languages(problem_id, session),
+            "diagram_svg": diagram_for_test_case(test_cases[0].input_json) if test_cases else None,
             **_editor_context(problem, "python", test_cases, session),
         },
     )

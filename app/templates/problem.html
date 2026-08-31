@@ -63,6 +63,13 @@
     </details>
   </section>
 
+  {% if diagram_svg %}
+  <section class="diagram-section">
+    <h2>Visualize (Example 1)</h2>
+    <div class="diagrams">{{ diagram_svg | safe }}</div>
+  </section>
+  {% endif %}
+
   <section class="hint-box">
     <h2>Stuck?</h2>
     <button
